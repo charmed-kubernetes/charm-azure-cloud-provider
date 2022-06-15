@@ -1,0 +1,28 @@
+list-versions:
+  description: List Cloud Provider and Storage Versions supported by this charm
+list-resources:
+  description: List Cloud Provider and Storage Resources of configured version
+  params:
+    controller:
+      type: string
+      default: ""
+      description: |
+        Filter list based on "provider" or "storage" manifests.
+    resources:
+      type: string
+      default: ""
+      description: |
+        Space separated list of kubernetes resource types to filter list result
+scrub-resources:
+  description: Remove deployments other than the current one
+  params:
+    controller:
+      type: string
+      default: ""
+      description: |
+        Filter list based on "provider" or "storage" manifests.
+    resources:
+      type: string
+      default: ""
+      description: |
+        Space separated list of kubernetes resource types to filter scrubbing   

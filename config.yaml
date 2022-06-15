@@ -1,0 +1,132 @@
+options:
+  # Global options
+  aad-client-id:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The ClientID for an AAD application with RBAC access to talk to Azure RM APIs
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  aad-client-secret:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The ClientSecret for an AAD application with RBAC access to talk to Azure RM APIs.
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  location:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The location of the resource group that the cluster is deployed in.
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  resource-group:
+    description: >-
+      Required if not related to the Azure Integrator. 
+
+      The name of the resource group that the cluster is deployed in.
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  security-group-name:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The name of the security group attached to the cluster’s subnet	
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  subnet-name:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The name of the subnet that the cluster is deployed in.
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  subscription-id:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The ID of the Azure Subscription that the cluster is deployed in	
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  tenant-id:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The AAD Tenant ID for the Subscription that the cluster is deployed in	
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  vnet-name:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The name of the VNet that the cluster is deployed in.
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  vnet-resource-group:
+    description: >-
+      Required if not related to the Azure Integrator.
+
+      The name of the resource group that the Vnet is deployed in	 
+      https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+    type: string
+
+  vm-type:
+    description: >-
+      The type of azure nodes. Candidate values are: vmss and standard.
+    type: string
+    default: "standard"
+
+  control-node-selector:
+    description: |
+      Specifies to which nodes this charm adds the azure deployments
+      Declare node labels in key=value format, separated by spaces.
+
+      Required if not related to kubernetes-control-plane:external-cloud-provider
+
+      e.g. 
+        node-role.kubernetes.io/control-plane=""
+    type: string
+
+  image-registry:
+    type: string
+    description: |
+      Source registry of metrics server images.
+
+      By setting to a value, each image listed in the releases manifest
+      has its image-registry replaced.
+
+      If unset, the manifests will use the image registry from the kube-control relation
+
+      example)
+        juju config kubernetes-metrics-server image-registry='rocks.canonical.com:443/cdk'
+
+        juju config kubernetes-metrics-server --reset image-registry
+
+  provider-release:
+    type: string
+    description: |
+      Specify the version of cloud-provider as defined by the `releases`
+      directory of https://github.com/kubernetes-sigs/cloud-provider-azure/
+
+      example)
+        juju config azure-cloud-provider provider-release='v1.24.1'
+      
+      A list of supported versions is available through the action:
+        juju run-action azure-cloud-provider/0 list-releases --wait
+      
+      To reset by to the latest supported by the charm use:
+        juju config azure-cloud-provider --reset provider-release
+      
+      The current release deployed is available by viewing
+        juju status azure-cloud-provider
+

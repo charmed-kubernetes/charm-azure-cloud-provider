@@ -1,0 +1,23 @@
+# Copyright 2022 Canonical, Ltd.
+# See LICENSE file for licensing details.
+name: azure-cloud-provider
+display-name: Azure Cloud Provider
+summary: Runs the Azure Cloud Provider in the cluster.
+description: >-
+  The Azure cloud provider provides the Kubernetes cluster access to
+  native resources from Azure, such as storage and load balancers.
+subordinate: true
+provides:
+  external-cloud-provider:
+    interface: external_cloud_provider
+    limit: 1
+requires:
+  azure-integration:
+    interface: azure-integration
+    scope: container
+    limit: 1
+  kube-control:
+    interface: kube-control
+    limit: 1
+  certificates:
+    interface: tls-certificates
