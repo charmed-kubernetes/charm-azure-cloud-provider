@@ -271,15 +271,15 @@ class Manifests(abc.ABC):
         result: Mapping[_NamespaceKind, Set[HashableResource]] = defaultdict(set)
         for key, resources in self.resources.items():
             for obj in resources:
-                result[key].add(
-                    HashableResource(
-                        self.client.get(
-                            type(obj.resource),
-                            obj.name,
-                            namespace=obj.namespace,
-                        ),
+                try:
+                    next_rsc = self.client.get(
+                        type(obj.resource),
+                        obj.name,
+                        namespace=obj.namespace,
                     )
-                )
+                except ApiError:
+                    continue
+                result[key].add(HashableResource(next_rsc))
         return result
 
     def active_resources(self) -> Mapping[_NamespaceKind, Set[HashableResource]]:

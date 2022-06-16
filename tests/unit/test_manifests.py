@@ -5,7 +5,6 @@ import unittest.mock as mock
 from collections import namedtuple
 
 import pytest
-from lightkube import ApiError
 
 from manifests import HashableResource, Manifests, _NamespaceKind
 
@@ -153,17 +152,6 @@ def test_delete_current_resources(test_manifest, caplog):
     mock_client.delete.assert_any_call(
         type(element.resource), "test-manifest-secret", namespace="kube-system"
     )
-
-
-@pytest.fixture()
-def api_error_klass():
-    class TestApiError(ApiError):
-        status = mock.MagicMock()
-
-        def __init__(self):
-            pass
-
-    yield TestApiError
 
 
 @pytest.mark.parametrize(

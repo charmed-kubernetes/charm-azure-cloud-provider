@@ -6,8 +6,10 @@
 import unittest.mock as mock
 from pathlib import Path
 
+import lightkube.codecs as codecs
 import pytest
 import yaml
+from lightkube import ApiError
 from ops.model import BlockedStatus, WaitingStatus
 from ops.testing import Harness
 
@@ -181,3 +183,85 @@ def test_waits_for_config(harness: Harness, lk_client, caplog):
         "Applying provider secret data",
         "Setting wait-routes=false",
     ]
+
+
+@pytest.fixture()
+def mock_get_response(lk_client, api_error_klass):
+    def client_get_response(obj_type, name, *, namespace=None, labels=None):
+        try:
+            return codecs.from_dict(
+                dict(
+                    apiVersion="v1",
+                    kind=obj_type.__name__,
+                    metadata=dict(name=name, namespace=namespace, labels=labels),
+                )
+            )
+        except AttributeError:
+            raise api_error_klass()
+
+    lk_client().get.side_effect = client_get_response
+    yield client_get_response
+
+
+@pytest.fixture()
+def mock_list_response(lk_client, mock_get_response):
+    def client_list_response(obj_type, *, namespace=None, labels=None):
+        try:
+            return [
+                mock_get_response(obj_type, name="MockThing", namespace=namespace, labels=labels)
+            ]
+        except ApiError:
+            return []
+
+    lk_client().list.side_effect = client_list_response
+    yield client_list_response
+
+
+@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
+@pytest.mark.usefixtures("mock_list_response")
+def test_action_list_resources(harness: Harness, caplog):
+    harness.begin_with_initial_hooks()
+    event = mock.MagicMock()
+    event.params = {}
+    correct, extra, missing = harness.charm._list_resources(event)
+    assert len(correct) == 0
+    assert len(missing) == 3
+    assert len(extra) == 2
+    expected_result = {
+        "extra": "\n".join(sorted(str(_) for _ in extra)),
+        "missing": "\n".join(sorted(str(_) for _ in missing)),
+    }
+    event.set_results.assert_called_once_with(expected_result)
+
+
+@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
+@pytest.mark.usefixtures("mock_list_response")
+def test_action_list_resources_filtered(harness: Harness, caplog):
+    harness.begin_with_initial_hooks()
+    event = mock.MagicMock()
+    event.params = {"resources": "Secret Banana", "controller": "provider"}
+    correct, extra, missing = harness.charm._list_resources(event)
+    assert len(correct) == 0
+    assert len(missing) == 1
+    assert len(extra) == 1
+    expected_result = {
+        "extra": "\n".join(sorted(str(_) for _ in extra)),
+        "missing": "\n".join(sorted(str(_) for _ in missing)),
+    }
+    event.set_results.assert_called_once_with(expected_result)
+
+
+@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
+@pytest.mark.usefixtures("mock_list_response")
+def test_action_scrub_resources(harness: Harness, lk_client, mock_get_response, caplog):
+    class Secret:
+        pass
+
+    harness.begin_with_initial_hooks()
+    event = mock.MagicMock()
+    event.params = {"resources": "Secret", "controller": "provider"}
+    harness.charm._scrub_resources(event)
+    expected = mock_get_response(Secret, "MockThing", namespace="kube-system")
+    lk_client().delete.assert_called_with(
+        type(expected), expected.metadata.name, namespace=expected.metadata.namespace
+    )
