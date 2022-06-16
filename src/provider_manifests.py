@@ -4,7 +4,7 @@
 import json
 import logging
 from hashlib import md5
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
 
 import humps
 
@@ -25,16 +25,23 @@ class UpdateSecret(Patch):
     """Update the secret as a patch since the manifests includes a default."""
 
     REQUIRED = {
-        "tenant-id",
-        "subscription-id",
         "aad-client-id",
         "aad-client-secret",
         "resource-group",
         "location",
         "subnet-name",
         "security-group-name",
+        "subscription-id",
+        "tenant-id",
         "vnet-name",
         "vnet-resource-group",
+    }
+    OPTIONAL = {
+        "load-balancer-sku",
+        "primary-availability-set-name",
+        "primary-scale-set-name",
+        "route-table-name",
+        "vm-type",
     }
 
     def __call__(self, obj):
@@ -46,27 +53,38 @@ class UpdateSecret(Patch):
             log.error("secret data item is None")
             return
 
-        log.info(f"Applying provider secret data")
+        log.info("Applying provider secret data")
         azure_json = json.loads(obj.stringData["azure.json"])
-        azure_json.update(**humps.pascalize(self.manifests.config))
+        required = {k: v for k, v in self.manifests.config.items() if k in self.REQUIRED}
+        optional = {k: v for k, v in self.manifests.config.items() if k in self.OPTIONAL and v}
+
+        azure_json.update(**humps.camelize(required))  # updated required
+        for key in self.OPTIONAL:  # remove optional keys
+            azure_json.pop(humps.camelize(key), None)
+        azure_json.update(**humps.camelize(optional))  # set any available optional keys
         obj.stringData["azure.json"] = json.dumps(azure_json)
 
 
 class UpdateNode(Patch):
+    """Update the node manager daemonset as a patch."""
+
     NAME = "cloud-node-manager"
-    REQUIRED = {"control-node-selector",}
+    REQUIRED = {
+        "control-node-selector",
+    }
 
     def _adjuster(self, toleration: Toleration) -> List[Toleration]:
-        node_selector = self.manifests.config.get("control-node-selector")
+        node_selector = self.manifests.config.get("control-node-selector", {})
         if toleration.key and toleration.key.startswith("node-role.kubernetes.io"):
             return [
                 Toleration(
-                    key=key, 
-                    value=value, 
+                    key=key,
+                    value=value,
                     effect=toleration.effect,
                     operator=toleration.operator,
                     tolerationSeconds=toleration.tolerationSeconds,
-                    ) for key, value in node_selector.items()
+                )
+                for key, value in node_selector.items()
             ]
         return [toleration]
 
@@ -80,24 +98,41 @@ class UpdateNode(Patch):
                 f"provider control-node-selector was an unexpected type: {type(node_selector)}"
             )
             return
- 
+
         update_toleration(obj, self._adjuster)
+
+        container = next(
+            filter(lambda c: c.name == self.NAME, obj.spec.template.spec.containers), None
+        )
+        if container:
+            assert "--wait-routes" in container.command[-1]
+            container.command[-1] = "--wait-routes=false"
+            log.info("Setting wait-routes=false")
 
 
 class UpdateController(Patch):
+    """Update the cloud controller Deployment/Pod as a patch."""
+
     NAME = "cloud-controller-manager"
-    REQUIRED = {"control-node-selector",}
+    REQUIRED = {
+        "control-node-selector",
+    }
+    OPTIONAL = {
+        "cluster-cidr",
+        "route-reconciliation-period",
+    }
 
     def _adjuster(self, toleration: Toleration) -> List[Toleration]:
-        node_selector = self.manifests.config.get("control-node-selector")
+        node_selector = self.manifests.config.get("control-node-selector", {})
         return [
             Toleration(
-                key=key, 
-                value=value, 
+                key=key,
+                value=value,
                 effect=toleration.effect,
                 operator=toleration.operator,
                 tolerationSeconds=toleration.tolerationSeconds,
-                ) for key, value in node_selector.items()
+            )
+            for key, value in node_selector.items()
         ]
 
     def _update_args(self, spec) -> None:
@@ -105,9 +140,10 @@ class UpdateController(Patch):
         container = next(filter(lambda c: c.name == self.NAME, spec.containers), None)
         if container:
             arguments = dict(arg.split("=") for arg in container.args)
-            arguments.pop("--allocate-node-cidrs", None)
-            arguments.pop("--cluster-cidr", None)
-            arguments.pop("--cluster-name", None)
+            arguments["--allocate-node-cidrs"] = "false"
+            arguments["--configure-cloud-routes"] = "false"
+            for arg in self.OPTIONAL:
+                arguments.pop(f"--{arg}", None)
             if cluster_tag:
                 log.info(f"Replacing default cluster-name to {cluster_tag}")
                 arguments["--cluster-name"] = cluster_tag
@@ -116,7 +152,7 @@ class UpdateController(Patch):
 
 class UpdateControllerPod(UpdateController):
     """Update the Pod object to reference juju supplied node selector."""
- 
+
     def __call__(self, obj):
         """Update the Deployment object in the deployment."""
         if not (obj.kind == "Pod" and obj.metadata.name == self.NAME):
@@ -127,7 +163,7 @@ class UpdateControllerPod(UpdateController):
                 f"provider control-node-selector was an unexpected type: {type(node_selector)}"
             )
             return
- 
+
         update_toleration(obj, self._adjuster)
         self._update_args(obj.spec)
 
@@ -156,7 +192,6 @@ class UpdateControllerDeployment(UpdateController):
 
         update_toleration(obj, self._adjuster)
         self._update_args(obj.spec.template.spec)
-
 
 
 class AzureProviderManifests(Manifests):
@@ -219,11 +254,7 @@ class AzureProviderManifests(Manifests):
 
     def evaluate(self) -> Optional[str]:
         """Determine if manifest_config can be applied to manifests."""
-        props = (
-            UpdateSecret.REQUIRED
-            | UpdateControllerDeployment.REQUIRED
-            | UpdateNode.REQUIRED
-        )
+        props = UpdateSecret.REQUIRED | UpdateControllerDeployment.REQUIRED | UpdateNode.REQUIRED
         for prop in props:
             value = self.config.get(prop)
             if not value:

@@ -163,6 +163,7 @@ def test_waits_for_config(harness: Harness, lk_client, caplog):
         'Applying provider Control Node Selector as gcp.io/my-control-node: ""',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
+        "Setting wait-routes=false",
     ]
 
     caplog.clear()
@@ -178,4 +179,5 @@ def test_waits_for_config(harness: Harness, lk_client, caplog):
         'Applying provider Control Node Selector as juju-application: "kubernetes-control-plane"',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
+        "Setting wait-routes=false",
     ]

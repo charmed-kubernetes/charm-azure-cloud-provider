@@ -175,7 +175,7 @@ def gather_current(source: str) -> Set[Release]:
     """Gather currently supported manifests by the charm."""
     manifests = SOURCES[source]["manifests"]
     releases = defaultdict(list)
-    for release_path in (FILEDIR / source / "manifests").glob(f"*/*.yaml"):
+    for release_path in (FILEDIR / source / "manifests").glob("*/*.yaml"):
         if release_path.name in manifests:
             releases[release_path.parent.name].append(release_path)
     return set(Release(version, files) for version, files in releases.items())

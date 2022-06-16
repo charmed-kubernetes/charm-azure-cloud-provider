@@ -6,7 +6,7 @@ This documents explains the processes and practices recommended for contributing
 this operator.
 
 - Generally, before developing enhancements to this charm, you should consider [opening an issue
-  ](https://github.com/charmed-kubernetes/vsphere-cloud-provider/issues) explaining your use case.
+  ](https://github.com/charmed-kubernetes/charm-azure-cloud-provider/issues) explaining your use case.
 - If you would like to chat with us about your use-cases or proposed implementation, you can reach
   us at [Canonical Mattermost public channel](https://chat.charmhub.io/charmhub/channels/charm-dev)
   or [Discourse](https://discourse.charmhub.io/).
@@ -60,7 +60,7 @@ tox                  # runs 'lint' and 'unit' environments
 Build the charm in this git repository using:
 
 ```shell
-charmcraft pack
+charmcraft pack -v
 ```
 
 ### Deploy
@@ -71,13 +71,13 @@ juju add-model dev
 # Enable DEBUG logging
 juju model-config logging-config="<root>=INFO;unit=DEBUG"
 # Deploy the charm
-juju deploy vsphere-integrator
-juju deploy ./vsphere-cloud-provider_ubuntu-20.04-amd64.charm
-juju relate vsphere-integrator vsphere-cloud-provider
+juju deploy azure-integrator --trust
+juju deploy ./azure-cloud-provider_ubuntu-20.04-amd64.charm
+juju relate azure-integrator:clients azure-cloud-provider
 ```
 
 ## Canonical Contributor Agreement
 
-Canonical welcomes contributions to the vSphere Cloud Provider Operator. Please check
+Canonical welcomes contributions to the Azure Cloud Provider Operator. Please check
 out our [contributor agreement](https://ubuntu.com/legal/contributors) if
 you're interested in contributing to the solution.

@@ -124,6 +124,7 @@ class AzureIntegrationRequires(Object):
 
     @cached_property
     def vm_metadata(self):
+        """Metadata about this VM instance."""
         req = Request(self._metadata_url, headers=self._metadata_headers)
         with urlopen(req) as fd:
             metadata = fd.read(READ_BLOCK_SIZE).decode("utf8").strip()
@@ -181,37 +182,27 @@ class AzureIntegrationRequires(Object):
 
     @property
     def vm_id(self):
-        """
-        This unit's instance ID.
-        """
+        """This unit's instance ID."""
         return self.vm_metadata["compute"]["vmId"]
 
     @property
     def vm_name(self):
-        """
-        This unit's instance name.
-        """
+        """This unit's instance name."""
         return self.vm_metadata["compute"]["name"]
 
     @property
     def vm_location(self):
-        """
-        The location (region) the instance is running in.
-        """
+        """The location (region) the instance is running in."""
         return self.vm_metadata["compute"]["location"]
 
     @property
     def resource_group(self):
-        """
-        The resource group this unit is in.
-        """
+        """The resource group this unit is in."""
         return self.vm_metadata["compute"]["resourceGroupName"]
 
     @property
     def subscription_id(self):
-        """
-        The ID of the Azure Subscription this unit is in.
-        """
+        """The ID of the Azure Subscription this unit is in."""
         return self.vm_metadata["compute"]["subscriptionId"]
 
     def _request(self, keyvals):
@@ -222,57 +213,41 @@ class AzureIntegrationRequires(Object):
         to_publish["requested"] = nonce
 
     def tag_instance(self, tags):
-        """
-        Request that the given tags be applied to this instance.
+        """Request that the given tags be applied to this instance.
+
         # Parameters
         `tags` (dict): Mapping of tags names to values.
         """
         self._request({"instance-tags": dict(tags)})
 
     def enable_instance_inspection(self):
-        """
-        Request the ability to inspect instances.
-        """
+        """Request the ability to inspect instances."""
         self._request({"enable-instance-inspection": True})
 
     def enable_network_management(self):
-        """
-        Request the ability to manage networking.
-        """
+        """Request the ability to manage networking."""
         self._request({"enable-network-management": True})
 
     def enable_loadbalancer_management(self):
-        """
-        Request the ability to manage networking.
-        """
+        """Request the ability to manage networking."""
         self._request({"enable-loadbalancer-management": True})
 
     def enable_security_management(self):
-        """
-        Request the ability to manage security (e.g., firewalls).
-        """
+        """Request the ability to manage security (e.g., firewalls)."""
         self._request({"enable-security-management": True})
 
     def enable_block_storage_management(self):
-        """
-        Request the ability to manage block storage.
-        """
+        """Request the ability to manage block storage."""
         self._request({"enable-block-storage-management": True})
 
     def enable_dns_management(self):
-        """
-        Request the ability to manage DNS.
-        """
+        """Request the ability to manage DNS."""
         self._request({"enable-dns": True})
 
     def enable_object_storage_access(self):
-        """
-        Request the ability to access object storage.
-        """
+        """Request the ability to access object storage."""
         self._request({"enable-object-storage-access": True})
 
     def enable_object_storage_management(self):
-        """
-        Request the ability to manage object storage.
-        """
+        """Request the ability to manage object storage."""
         self._request({"enable-object-storage-management": True})

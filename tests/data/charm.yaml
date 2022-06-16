@@ -3,6 +3,9 @@ applications:
   kubernetes-control-plane:
     options:
       register-with-taints: ""  # requires kubelet on control-plane
+  calico:
+    options:
+      cidr: 172.22.0.0/16       # replace 192.168.0.0/16 as it's the default in azure for host networking
   azure-integrator:
     charm: azure-integrator
     channel: edge

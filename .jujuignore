@@ -1,5 +1,5 @@
 *.charm
-.tox/
+.tox/*
 htmlcov/
 .coverage
 regsync
