@@ -10,6 +10,7 @@ from typing import Optional
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
+from ops.manifests import Collector
 from ops.model import (
     ActiveStatus,
     BlockedStatus,
@@ -17,7 +18,6 @@ from ops.model import (
     Relation,
     WaitingStatus,
 )
-from ops.manifests import Collector
 
 from config import CharmConfig
 from provider_manifests import AzureProviderManifests

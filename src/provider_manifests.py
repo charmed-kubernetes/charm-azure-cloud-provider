@@ -7,17 +7,14 @@ from hashlib import md5
 from typing import Dict, List, Optional
 
 import humps
-
+from lightkube.models.core_v1 import Toleration
 from ops.manifests import (
-    ManifestLabel,
     ConfigRegistry,
+    ManifestLabel,
     Manifests,
     Patch,
     update_toleration,
 )
-
-from lightkube.models.core_v1 import Toleration
-
 
 log = logging.getLogger(__file__)
 SECRET_NAME = "azure-cloud-config"
