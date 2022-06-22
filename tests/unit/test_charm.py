@@ -150,21 +150,21 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
 def test_waits_for_config(harness: Harness, lk_client, caplog):
     harness.begin_with_initial_hooks()
 
-    lk_client().list.return_value = [mock.Mock(**{"metadata.annotations": {}})]
+    lk_client.list.return_value = [mock.Mock(**{"metadata.annotations": {}})]
     caplog.clear()
     harness.update_config(
         {
             "control-node-selector": 'gcp.io/my-control-node=""',
         }
     )
-    provider_messages = [r.message for r in caplog.records if "provider" in r.filename]
+    provider_messages = {r.message for r in caplog.records if "provider" in r.filename}
 
-    assert provider_messages == [
+    assert provider_messages == {
         'Applying provider Control Node Selector as gcp.io/my-control-node: ""',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
         "Setting wait-routes=false",
-    ]
+    }
 
     caplog.clear()
     harness.update_config(
@@ -173,11 +173,11 @@ def test_waits_for_config(harness: Harness, lk_client, caplog):
             "image-registry": "dockerhub.io",
         }
     )
-    provider_messages = [r.message for r in caplog.records if "provider" in r.filename]
+    provider_messages = {r.message for r in caplog.records if "provider" in r.filename}
 
-    assert provider_messages == [
+    assert provider_messages == {
         'Applying provider Control Node Selector as juju-application: "kubernetes-control-plane"',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
         "Setting wait-routes=false",
-    ]
+    }

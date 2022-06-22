@@ -8,14 +8,16 @@ from typing import Dict, List, Optional
 
 import humps
 
-from manifests import (
-    CharmLabel,
+from ops.manifests import (
+    ManifestLabel,
     ConfigRegistry,
     Manifests,
     Patch,
-    Toleration,
     update_toleration,
 )
+
+from lightkube.models.core_v1 import Toleration
+
 
 log = logging.getLogger(__file__)
 SECRET_NAME = "azure-cloud-config"
@@ -197,15 +199,15 @@ class UpdateControllerDeployment(UpdateController):
 class AzureProviderManifests(Manifests):
     """Deployment Specific details for the azure-cloud-provider."""
 
-    def __init__(self, charm_name, charm_config, integrator, control_plane, kube_control):
+    def __init__(self, charm_config, integrator, control_plane, kube_control):
         manipulations = [
-            CharmLabel(self),
+            ManifestLabel(self),
             ConfigRegistry(self),
             UpdateSecret(self),
             UpdateControllerDeployment(self),
             UpdateNode(self),
         ]
-        super().__init__(charm_name, "upstream/cloud_provider", manipulations=manipulations)
+        super().__init__("cloud_provider", "upstream/cloud_provider", manipulations=manipulations)
         self.charm_config = charm_config
         self.integrator = integrator
         self.control_plane = control_plane
