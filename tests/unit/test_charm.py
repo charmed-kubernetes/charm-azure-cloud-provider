@@ -6,17 +6,21 @@
 import unittest.mock as mock
 from pathlib import Path
 
+import lightkube.codecs as codecs
+import ops.testing
 import pytest
 import yaml
+from lightkube import ApiError
 from ops.model import BlockedStatus, WaitingStatus
-from ops.testing import Harness
 
 from charm import AzureCloudProviderCharm
+
+ops.testing.SIMULATE_CAN_CONNECT = True
 
 
 @pytest.fixture
 def harness():
-    harness = Harness(AzureCloudProviderCharm)
+    harness = ops.testing.Harness(AzureCloudProviderCharm)
     try:
         yield harness
     finally:
@@ -31,7 +35,7 @@ def mock_ca_cert(tmpdir):
 
 
 @pytest.fixture()
-def control_plane(harness: Harness):
+def control_plane(harness):
     rel_id = harness.add_relation("external-cloud-provider", "kubernetes-control-plane")
     harness.add_relation_unit(rel_id, "kubernetes-control-plane/0")
     harness.add_relation_unit(rel_id, "kubernetes-control-plane/1")
@@ -147,7 +151,7 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
 
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
-def test_waits_for_config(harness: Harness, lk_client, caplog):
+def test_waits_for_config(harness, lk_client, caplog):
     harness.begin_with_initial_hooks()
 
     lk_client.list.return_value = [mock.Mock(**{"metadata.annotations": {}})]
@@ -181,3 +185,84 @@ def test_waits_for_config(harness: Harness, lk_client, caplog):
         "Applying provider secret data",
         "Setting wait-routes=false",
     }
+
+
+@pytest.fixture()
+def mock_get_response(lk_client, api_error_klass):
+    def client_get_response(obj_type, name, *, namespace=None, labels=None):
+        try:
+            return codecs.from_dict(
+                dict(
+                    apiVersion="v1",
+                    kind=obj_type.__name__,
+                    metadata=dict(name=name, namespace=namespace, labels=labels),
+                )
+            )
+        except AttributeError:
+            raise api_error_klass()
+
+    with mock.patch.object(lk_client, "get", side_effect=client_get_response):
+        yield client_get_response
+
+
+@pytest.fixture()
+def mock_list_response(lk_client, mock_get_response):
+    def client_list_response(obj_type, *, namespace=None, labels=None):
+        try:
+            return [
+                mock_get_response(obj_type, name="MockThing", namespace=namespace, labels=labels)
+            ]
+        except ApiError:
+            return []
+
+    with mock.patch.object(lk_client, "list", side_effect=client_list_response):
+        yield client_list_response
+
+
+@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
+@pytest.mark.usefixtures("mock_list_response")
+def test_action_list_resources(harness, caplog):
+    harness.begin_with_initial_hooks()
+    event = mock.MagicMock()
+    event.params = {}
+    harness.charm._list_resources(event)
+    (results,) = event.set_results.call_args.args
+    correct, extra, missing = (
+        results.get(f"cloud-provider-azure {_}") for _ in ["correct", "extra", "missing"]
+    )
+    assert correct and len(correct.splitlines()) == 3
+    assert missing and len(missing.splitlines()) == 8
+    assert extra and len(extra.splitlines()) == 2
+
+
+@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
+@pytest.mark.usefixtures("mock_list_response")
+def test_action_list_resources_filtered(harness, caplog):
+    harness.begin_with_initial_hooks()
+    event = mock.MagicMock()
+    event.params = {"resources": "Secret Banana", "controller": "cloud-provider-azure"}
+    harness.charm._list_resources(event)
+    (results,) = event.set_results.call_args.args
+    correct, extra, missing = (
+        results.get(f"cloud-provider-azure {_}") for _ in ["correct", "extra", "missing"]
+    )
+    assert missing is None
+    assert correct and len(correct.splitlines()) == 1
+    assert extra and len(extra.splitlines()) == 1
+
+
+@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
+@pytest.mark.usefixtures("mock_list_response")
+def test_action_scrub_resources(harness, lk_client, mock_get_response, caplog):
+    class Secret:
+        pass
+
+    harness.begin_with_initial_hooks()
+    event = mock.MagicMock()
+    event.params = {"resources": "Secret", "controller": "cloud-provider-azure"}
+    with mock.patch.object(lk_client, "delete") as mock_delete:
+        harness.charm._scrub_resources(event)
+    expected = mock_get_response(Secret, "MockThing", namespace="kube-system")
+    mock_delete.assert_called_with(
+        type(expected), expected.metadata.name, namespace=expected.metadata.namespace
+    )

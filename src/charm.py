@@ -93,7 +93,7 @@ class AzureCloudProviderCharm(CharmBase):
     def _list_resources(self, event):
         manifests = event.params.get("controller", "")
         resources = event.params.get("resources", "")
-        return self.collector.list_resources(event, manifests, resources)
+        self.collector.list_resources(event, manifests, resources)
 
     def _scrub_resources(self, event):
         manifests = event.params.get("controller", "")
