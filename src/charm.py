@@ -143,24 +143,21 @@ class AzureCloudProviderCharm(CharmBase):
         if not self.stored.deployed:
             return
 
-        unready = []
-        for controller in self.controllers.values():
-            for obj in controller.status():
-                for cond in obj.resource.status.conditions:
-                    if cond.status != "True":
-                        unready.append(f"{obj} not {cond.type}")
-        if unready:
-            self.unit.status = WaitingStatus(", ".join(sorted(unready)))
+        busy = [
+            f"{obj} not {cond.type}"
+            for controller in self.controllers.values()
+            for obj in controller.status()
+            for cond in obj.resource.status.conditions
+            if cond.status != "True"
+        ]
+        if busy:
+            self.unit.status = WaitingStatus(", ".join(sorted(busy)))
         else:
+            short_ver = (c.current_release for c in self.controllers.values())
+            long_ver = (f"{app}={c.current_release}" for app, c in self.controllers.items())
             self.unit.status = ActiveStatus("Ready")
-
-            ver = ",".join(c.current_release for c in self.controllers.values())
-            self.unit.set_workload_version(ver)
-
-            versions = ", ".join(
-                f"{app}={c.current_release}" for app, c in self.controllers.items()
-            )
-            self.app.status = ActiveStatus(f"Versions: {versions}")
+            self.unit.set_workload_version(",".join(short_ver))
+            self.app.status = ActiveStatus(f"Versions: {', '.join(long_ver)}")
 
     @property
     def control_plane_relation(self) -> Optional[Relation]:
