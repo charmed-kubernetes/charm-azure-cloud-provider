@@ -226,7 +226,7 @@ def test_action_list_resources(harness, caplog):
     event = mock.MagicMock()
     event.params = {}
     harness.charm._list_resources(event)
-    (results,) = event.set_results.call_args.args
+    (results,), _ = event.set_results.call_args
     correct, extra, missing = (
         results.get(f"cloud-provider-azure {_}") for _ in ["correct", "extra", "missing"]
     )
@@ -242,7 +242,7 @@ def test_action_list_resources_filtered(harness, caplog):
     event = mock.MagicMock()
     event.params = {"resources": "Secret Banana", "controller": "cloud-provider-azure"}
     harness.charm._list_resources(event)
-    (results,) = event.set_results.call_args.args
+    (results,), _ = event.set_results.call_args
     correct, extra, missing = (
         results.get(f"cloud-provider-azure {_}") for _ in ["correct", "extra", "missing"]
     )
