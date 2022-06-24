@@ -7,18 +7,20 @@ import unittest.mock as mock
 from pathlib import Path
 
 import lightkube.codecs as codecs
+import ops.testing
 import pytest
 import yaml
 from lightkube import ApiError
 from ops.model import BlockedStatus, WaitingStatus
-from ops.testing import Harness
 
 from charm import AzureCloudProviderCharm
+
+ops.testing.SIMULATE_CAN_CONNECT = True
 
 
 @pytest.fixture
 def harness():
-    harness = Harness(AzureCloudProviderCharm)
+    harness = ops.testing.Harness(AzureCloudProviderCharm)
     try:
         yield harness
     finally:
@@ -33,7 +35,7 @@ def mock_ca_cert(tmpdir):
 
 
 @pytest.fixture()
-def control_plane(harness: Harness):
+def control_plane(harness):
     rel_id = harness.add_relation("external-cloud-provider", "kubernetes-control-plane")
     harness.add_relation_unit(rel_id, "kubernetes-control-plane/0")
     harness.add_relation_unit(rel_id, "kubernetes-control-plane/1")
@@ -149,7 +151,7 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
 
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
-def test_waits_for_config(harness: Harness, lk_client, caplog):
+def test_waits_for_config(harness, lk_client, caplog):
     harness.begin_with_initial_hooks()
 
     lk_client().list.return_value = [mock.Mock(**{"metadata.annotations": {}})]
@@ -219,7 +221,7 @@ def mock_list_response(lk_client, mock_get_response):
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
 @pytest.mark.usefixtures("mock_list_response")
-def test_action_list_resources(harness: Harness, caplog):
+def test_action_list_resources(harness, caplog):
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
     event.params = {}
@@ -236,7 +238,7 @@ def test_action_list_resources(harness: Harness, caplog):
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
 @pytest.mark.usefixtures("mock_list_response")
-def test_action_list_resources_filtered(harness: Harness, caplog):
+def test_action_list_resources_filtered(harness, caplog):
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
     event.params = {"resources": "Secret Banana", "controller": "provider"}
@@ -253,7 +255,7 @@ def test_action_list_resources_filtered(harness: Harness, caplog):
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
 @pytest.mark.usefixtures("mock_list_response")
-def test_action_scrub_resources(harness: Harness, lk_client, mock_get_response, caplog):
+def test_action_scrub_resources(harness, lk_client, mock_get_response, caplog):
     class Secret:
         pass
 
