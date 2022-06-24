@@ -3,6 +3,7 @@ build/
 *.charm
 .tox/
 htmlcov/
+prof/
 .coverage
 __pycache__/
 *.py[cod]
