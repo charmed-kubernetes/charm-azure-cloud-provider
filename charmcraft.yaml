@@ -1,13 +1,28 @@
 # Learn more about charmcraft.yaml configuration at:
 # https://juju.is/docs/sdk/charmcraft-config
+
+# Architectures based on supported arch's in upstream
+# https://github.com/kubernetes-sigs/cloud-provider-azure/blob/ca18c75a5ec618fa71357d8c6d565ca8acb3d60d/Makefile#L36
 type: "charm"
 bases:
   - build-on:
     - name: "ubuntu"
       channel: "20.04"
+      architectures:
+        - amd64
     run-on:
     - name: "ubuntu"
       channel: "20.04"
+      architectures:
+        - amd64
+        - arm
+        - arm64
+    - name: "ubuntu"
+      channel: "22.04"
+      architectures:
+        - amd64
+        - arm
+        - arm64
 parts:
   charm:
     charm-python-packages: [setuptools, pip]
