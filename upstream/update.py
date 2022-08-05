@@ -3,7 +3,6 @@
 # See LICENSE file for licensing details.
 """Update to a new upstream release."""
 import argparse
-from itertools import accumulate
 import json
 import logging
 import re
@@ -13,9 +12,10 @@ import urllib.error
 import urllib.request
 from collections import defaultdict
 from dataclasses import dataclass
+from itertools import accumulate
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Generator, List, Optional, Set, Tuple, TypedDict
+from typing import Generator, List, Optional, Set, TypedDict
 
 import yaml
 from semver import VersionInfo
@@ -78,10 +78,12 @@ class Release:
         return isinstance(other, Release) and self.name == other.name
 
     def __lt__(self, other) -> bool:
-        """Compare version numbers"""
-        a,b, = self.name[1:], other.name[1:]
+        """Compare version numbers."""
+        a, b, = (
+            self.name[1:],
+            other.name[1:],
+        )
         return VersionInfo.parse(a) < VersionInfo.parse(b)
-        
 
 
 SyncAsset = TypedDict("SyncAsset", {"source": str, "target": str, "type": str})
@@ -200,33 +202,31 @@ def download(source: str, release: Release) -> Release:
         paths.append(dest)
     return Release(release.name, paths)
 
+
 def dedupe(this: Release, next: Release) -> Release:
+    """Remove duplicate releases.
+
+    returns this release if this==next by content
+    returns next release if this!=next by content
     """
-    Returns this release if this==next by content
-    Returns next release if this!=next by content
-    """
-    files_this, files_next = (
-        set(path.name for path in rel.paths) for rel in (this, next)
-    )
+    files_this, files_next = (set(path.name for path in rel.paths) for rel in (this, next))
     if files_this != files_next:
         # Found a different set of files
         return next
 
     for file_next in next.paths:
         for file_this in this.paths:
-            if all((
-                file_this.name == file_next.name,
-                file_this.read_text() != file_next.read_text()
-            )):
+            if all(
+                (file_this.name == file_next.name, file_this.read_text() != file_next.read_text())
+            ):
                 # Found different in at least one file
                 return next
-    
+
     for path in next.paths:
         path.unlink()
     path.parent.rmdir()
     log.info(f"Deleting Duplicate Release {next.name}")
     return this
-
 
 
 def images(release: Release) -> Generator[str, None, None]:
