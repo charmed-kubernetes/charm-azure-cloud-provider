@@ -3,6 +3,7 @@
 # See LICENSE file for licensing details.
 """Update to a new upstream release."""
 import argparse
+from itertools import accumulate
 import json
 import logging
 import re
@@ -76,6 +77,12 @@ class Release:
         """Comparible based on its name."""
         return isinstance(other, Release) and self.name == other.name
 
+    def __lt__(self, other) -> bool:
+        """Compare version numbers"""
+        a,b, = self.name[1:], other.name[1:]
+        return VersionInfo.parse(a) < VersionInfo.parse(b)
+        
+
 
 SyncAsset = TypedDict("SyncAsset", {"source": str, "target": str, "type": str})
 SyncCreds = TypedDict("SyncCreds", {"registry": str, "user": str, "pass": str})
@@ -99,17 +106,18 @@ def sync_asset(image: str, registry: Registry):
 def main(source: str, registry: Optional[Registry]):
     """Main update logic."""
     local_releases = gather_current(source)
-    latest, gh_releases = gather_releases(source)
+    gh_releases = gather_releases(source)
     new_releases = gh_releases - local_releases
     for release in new_releases:
         local_releases.add(download(source, release))
-    all_images = set(image for release in local_releases for image in images(release))
+    unique_releases = list(dict.fromkeys(accumulate((sorted(local_releases)), dedupe)))
+    all_images = set(image for release in unique_releases for image in images(release))
     if registry:
         mirror_image(all_images, registry)
-    return latest, all_images
+    return unique_releases[-1].name, all_images
 
 
-def gather_releases(source: str) -> Tuple[str, Set[Release]]:
+def gather_releases(source: str) -> Set[Release]:
     """Fetch from github the release manifests by version."""
     context = dict(**SOURCES[source])
     version_parser = context["version_parser"]
@@ -168,7 +176,7 @@ def gather_releases(source: str) -> Tuple[str, Set[Release]]:
                 reverse=True,
             )
 
-    return releases[0].name, set(releases)
+    return set(releases)
 
 
 def gather_current(source: str) -> Set[Release]:
@@ -184,16 +192,47 @@ def gather_current(source: str) -> Set[Release]:
 def download(source: str, release: Release) -> Release:
     """Download the manifest files for a specific release."""
     log.info(f"Getting Release {source}: {release.name}")
+    paths = []
     for manifest in release.paths:
         dest = FILEDIR / source / "manifests" / release.name / Path(manifest).name
         dest.parent.mkdir(exist_ok=True)
         urllib.request.urlretrieve(manifest, dest)
-    return Release(release.name, str(dest))
+        paths.append(dest)
+    return Release(release.name, paths)
+
+def dedupe(this: Release, next: Release) -> Release:
+    """
+    Returns this release if this==next by content
+    Returns next release if this!=next by content
+    """
+    files_this, files_next = (
+        set(path.name for path in rel.paths) for rel in (this, next)
+    )
+    if files_this != files_next:
+        # Found a different set of files
+        return next
+
+    for file_next in next.paths:
+        for file_this in this.paths:
+            if all((
+                file_this.name == file_next.name,
+                file_this.read_text() != file_next.read_text()
+            )):
+                # Found different in at least one file
+                return next
+    
+    for path in next.paths:
+        path.unlink()
+    path.parent.rmdir()
+    log.info(f"Deleting Duplicate Release {next.name}")
+    return this
+
 
 
 def images(release: Release) -> Generator[str, None, None]:
     """Yield all images from each release."""
-    for manifest in release.paths:
+    for path in release.paths:
+        manifest = FILEDIR / source / "manifests" / release.name / Path(path).name
         with manifest.open() as fp:
             for line in fp:
                 m = IMG_RE.match(line)
