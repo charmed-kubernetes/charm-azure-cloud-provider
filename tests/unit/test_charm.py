@@ -228,7 +228,7 @@ def test_action_list_resources(harness, caplog):
     harness.charm._list_resources(event)
     (results,), _ = event.set_results.call_args
     correct, extra, missing = (
-        results.get(f"cloud-provider-azure {_}") for _ in ["correct", "extra", "missing"]
+        results.get(f"cloud-provider-azure-{_}") for _ in ["correct", "extra", "missing"]
     )
     assert correct and len(correct.splitlines()) == 3
     assert missing and len(missing.splitlines()) == 8
@@ -244,7 +244,7 @@ def test_action_list_resources_filtered(harness, caplog):
     harness.charm._list_resources(event)
     (results,), _ = event.set_results.call_args
     correct, extra, missing = (
-        results.get(f"cloud-provider-azure {_}") for _ in ["correct", "extra", "missing"]
+        results.get(f"cloud-provider-azure-{_}") for _ in ["correct", "extra", "missing"]
     )
     assert missing is None
     assert correct and len(correct.splitlines()) == 1

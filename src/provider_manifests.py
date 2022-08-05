@@ -196,7 +196,7 @@ class UpdateControllerDeployment(UpdateController):
 class AzureProviderManifests(Manifests):
     """Deployment Specific details for the azure-cloud-provider."""
 
-    def __init__(self, app_name, charm_config, integrator, control_plane, kube_control):
+    def __init__(self, charm, charm_config, integrator, control_plane, kube_control):
         manipulations = [
             ManifestLabel(self),
             ConfigRegistry(self),
@@ -205,7 +205,7 @@ class AzureProviderManifests(Manifests):
             UpdateNode(self),
         ]
         super().__init__(
-            "cloud-provider-azure", app_name, "upstream/cloud_provider", manipulations
+            "cloud-provider-azure", charm.model, "upstream/cloud_provider", manipulations
         )
         self.charm_config = charm_config
         self.integrator = integrator

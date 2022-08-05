@@ -53,7 +53,7 @@ class AzureCloudProviderCharm(CharmBase):
         )
         self.collector = Collector(
             AzureProviderManifests(
-                self.app.name,
+                self,
                 self.charm_config,
                 self.integrator,
                 self.control_plane_relation,
