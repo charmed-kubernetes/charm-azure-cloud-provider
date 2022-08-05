@@ -5,3 +5,4 @@ htmlcov/
 regsync
 **/__pycache__/
 juju-crashdump-*
+.git/
