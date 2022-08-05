@@ -10,6 +10,7 @@ from typing import Optional
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
+from ops.manifests import Collector
 from ops.model import (
     ActiveStatus,
     BlockedStatus,
@@ -50,15 +51,15 @@ class AzureCloudProviderCharm(CharmBase):
             config_hash=None,  # hashed value of the provider config once valid
             deployed=False,  # True if the config has been applied after new hash
         )
-        self.controllers = {
-            "provider": AzureProviderManifests(
-                self.app.name,
+        self.collector = Collector(
+            AzureProviderManifests(
+                self,
                 self.charm_config,
                 self.integrator,
                 self.control_plane_relation,
                 self.kube_control,
-            ),
-        }
+            )
+        )
 
         self.framework.observe(self.on.kube_control_relation_created, self._kube_control)
         self.framework.observe(self.on.kube_control_relation_joined, self._kube_control)
@@ -87,77 +88,29 @@ class AzureCloudProviderCharm(CharmBase):
         self.framework.observe(self.on.stop, self._cleanup)
 
     def _list_versions(self, event):
-        result = {
-            f"{ctrl}-versions": "\n".join(sorted(str(_) for _ in _.releases))
-            for ctrl, _ in self.controllers.items()
-        }
-        event.set_results(result)
+        self.collector.list_versions(event)
 
     def _list_resources(self, event):
-        ctrl_filter = [_.lower() for _ in event.params.get("controller", "").split()]
-        if ctrl_filter:
-            event.log(f"Filter controllers listing with {ctrl_filter}")
-        ctrl_filter = set(ctrl_filter) or set(self.controllers.keys())
-
-        res_filter = [_.lower() for _ in event.params.get("resources", "").split()]
-        if res_filter:
-            event.log(f"Filter resource listing with {res_filter}")
-        res_filter = set(res_filter)
-
-        correct, extra, missing = (
-            set(),
-            set(),
-            set(),
-        )
-
-        for name, controller in self.controllers.items():
-            if name not in ctrl_filter:
-                continue
-            current = controller.active_resources()
-            expected = controller.expected_resources()
-            for kind_ns, current_set in current.items():
-                if not res_filter or kind_ns.kind.lower() in res_filter:
-                    expected_set = expected[kind_ns]
-                    correct |= current_set & expected_set
-                    extra |= current_set - expected_set
-                    missing |= expected_set - current_set
-
-        result = {
-            "correct": "\n".join(sorted(str(_) for _ in correct)),
-            "extra": "\n".join(sorted(str(_) for _ in extra)),
-            "missing": "\n".join(sorted(str(_) for _ in missing)),
-        }
-        result = {k: v for k, v in result.items() if v}
-        event.set_results(result)
-        return correct, extra, missing
+        manifests = event.params.get("controller", "")
+        resources = event.params.get("resources", "")
+        self.collector.list_resources(event, manifests, resources)
 
     def _scrub_resources(self, event):
-        _, extra, __ = self._list_resources(event)
-        if extra:
-            # either controller may be used to delete resources
-            # Let's just use one of them.
-            self.controllers["provider"].delete_resources(*extra)
-            self._list_resources(event)
+        manifests = event.params.get("controller", "")
+        resources = event.params.get("resources", "")
+        return self.collector.scrub_resources(event, manifests, resources)
 
     def _update_status(self, _):
         if not self.stored.deployed:
             return
 
-        busy = [
-            f"{obj} not {cond.type}"
-            for controller in self.controllers.values()
-            for obj in controller.status()
-            for cond in obj.resource.status.conditions
-            if cond.status != "True"
-        ]
-        if busy:
-            self.unit.status = WaitingStatus(", ".join(sorted(busy)))
+        unready = self.collector.unready
+        if unready:
+            self.unit.status = WaitingStatus(", ".join(unready))
         else:
-            short_ver = (c.current_release for c in self.controllers.values())
-            long_ver = (f"{app}={c.current_release}" for app, c in self.controllers.items())
             self.unit.status = ActiveStatus("Ready")
-            self.unit.set_workload_version(",".join(short_ver))
-            self.app.status = ActiveStatus(f"Versions: {', '.join(long_ver)}")
+            self.unit.set_workload_version(self.collector.short_version)
+            self.app.status = ActiveStatus(self.collector.long_version)
 
     @property
     def control_plane_relation(self) -> Optional[Relation]:
@@ -242,7 +195,7 @@ class AzureCloudProviderCharm(CharmBase):
 
         self.unit.status = MaintenanceStatus("Evaluating Manifests")
         new_hash = 0
-        for controller in self.controllers.values():
+        for controller in self.collector.manifests.values():
             evaluation = controller.evaluate()
             if evaluation:
                 self.unit.status = BlockedStatus(evaluation)
@@ -261,14 +214,14 @@ class AzureCloudProviderCharm(CharmBase):
             return
         self.unit.status = MaintenanceStatus("Deploying Azure Cloud Provider")
         self.unit.set_workload_version("")
-        for controller in self.controllers.values():
+        for controller in self.collector.manifests.values():
             controller.apply_manifests()
         self.stored.deployed = True
 
     def _cleanup(self, _event):
         if self.stored.config_hash:
             self.unit.status = MaintenanceStatus("Cleaning up Azure Cloud Provider")
-            for controller in self.controllers.values():
+            for controller in self.collector.manifests.values():
                 controller.delete_manifests(ignore_unauthorized=True)
         self.unit.status = MaintenanceStatus("Shutting down")
 

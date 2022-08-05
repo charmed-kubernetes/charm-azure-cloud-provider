@@ -154,7 +154,7 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
 def test_waits_for_config(harness, lk_client, caplog):
     harness.begin_with_initial_hooks()
 
-    lk_client().list.return_value = [mock.Mock(**{"metadata.annotations": {}})]
+    lk_client.list.return_value = [mock.Mock(**{"metadata.annotations": {}})]
     caplog.clear()
     harness.update_config(
         {
@@ -201,8 +201,8 @@ def mock_get_response(lk_client, api_error_klass):
         except AttributeError:
             raise api_error_klass()
 
-    lk_client().get.side_effect = client_get_response
-    yield client_get_response
+    with mock.patch.object(lk_client, "get", side_effect=client_get_response):
+        yield client_get_response
 
 
 @pytest.fixture()
@@ -215,8 +215,8 @@ def mock_list_response(lk_client, mock_get_response):
         except ApiError:
             return []
 
-    lk_client().list.side_effect = client_list_response
-    yield client_list_response
+    with mock.patch.object(lk_client, "list", side_effect=client_list_response):
+        yield client_list_response
 
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
@@ -225,15 +225,14 @@ def test_action_list_resources(harness, caplog):
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
     event.params = {}
-    correct, extra, missing = harness.charm._list_resources(event)
-    assert len(correct) == 0
-    assert len(missing) == 3
-    assert len(extra) == 2
-    expected_result = {
-        "extra": "\n".join(sorted(str(_) for _ in extra)),
-        "missing": "\n".join(sorted(str(_) for _ in missing)),
-    }
-    event.set_results.assert_called_once_with(expected_result)
+    harness.charm._list_resources(event)
+    (results,), _ = event.set_results.call_args
+    correct, extra, missing = (
+        results.get(f"cloud-provider-azure-{_}") for _ in ["correct", "extra", "missing"]
+    )
+    assert correct and len(correct.splitlines()) == 3
+    assert missing and len(missing.splitlines()) == 8
+    assert extra and len(extra.splitlines()) == 2
 
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
@@ -241,16 +240,15 @@ def test_action_list_resources(harness, caplog):
 def test_action_list_resources_filtered(harness, caplog):
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
-    event.params = {"resources": "Secret Banana", "controller": "provider"}
-    correct, extra, missing = harness.charm._list_resources(event)
-    assert len(correct) == 0
-    assert len(missing) == 1
-    assert len(extra) == 1
-    expected_result = {
-        "extra": "\n".join(sorted(str(_) for _ in extra)),
-        "missing": "\n".join(sorted(str(_) for _ in missing)),
-    }
-    event.set_results.assert_called_once_with(expected_result)
+    event.params = {"resources": "Secret Banana", "controller": "cloud-provider-azure"}
+    harness.charm._list_resources(event)
+    (results,), _ = event.set_results.call_args
+    correct, extra, missing = (
+        results.get(f"cloud-provider-azure-{_}") for _ in ["correct", "extra", "missing"]
+    )
+    assert missing is None
+    assert correct and len(correct.splitlines()) == 1
+    assert extra and len(extra.splitlines()) == 1
 
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
@@ -261,9 +259,10 @@ def test_action_scrub_resources(harness, lk_client, mock_get_response, caplog):
 
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
-    event.params = {"resources": "Secret", "controller": "provider"}
-    harness.charm._scrub_resources(event)
+    event.params = {"resources": "Secret", "controller": "cloud-provider-azure"}
+    with mock.patch.object(lk_client, "delete") as mock_delete:
+        harness.charm._scrub_resources(event)
     expected = mock_get_response(Secret, "MockThing", namespace="kube-system")
-    lk_client().delete.assert_called_with(
+    mock_delete.assert_called_with(
         type(expected), expected.metadata.name, namespace=expected.metadata.namespace
     )

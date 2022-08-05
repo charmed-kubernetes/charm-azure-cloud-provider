@@ -7,13 +7,12 @@ from hashlib import md5
 from typing import Dict, List, Optional
 
 import humps
-
-from manifests import (
-    CharmLabel,
+from lightkube.models.core_v1 import Toleration
+from ops.manifests import (
     ConfigRegistry,
+    ManifestLabel,
     Manifests,
     Patch,
-    Toleration,
     update_toleration,
 )
 
@@ -197,15 +196,17 @@ class UpdateControllerDeployment(UpdateController):
 class AzureProviderManifests(Manifests):
     """Deployment Specific details for the azure-cloud-provider."""
 
-    def __init__(self, charm_name, charm_config, integrator, control_plane, kube_control):
+    def __init__(self, charm, charm_config, integrator, control_plane, kube_control):
         manipulations = [
-            CharmLabel(self),
+            ManifestLabel(self),
             ConfigRegistry(self),
             UpdateSecret(self),
             UpdateControllerDeployment(self),
             UpdateNode(self),
         ]
-        super().__init__(charm_name, "upstream/cloud_provider", manipulations=manipulations)
+        super().__init__(
+            "cloud-provider-azure", charm.model, "upstream/cloud_provider", manipulations
+        )
         self.charm_config = charm_config
         self.integrator = integrator
         self.control_plane = control_plane
