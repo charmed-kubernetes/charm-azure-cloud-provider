@@ -25,6 +25,7 @@ log = logging.getLogger(__file__)
 class WriteSecret(Addition):
     """Write secrets for disk permissions.
 
+    # wokeignore:rule=master
     https://github.com/kubernetes-sigs/azuredisk-csi-driver/blob/master/docs/read-from-secret.md
     """
 
