@@ -20,6 +20,7 @@ from ops.manifests import (
 )
 
 log = logging.getLogger(__file__)
+STORAGE_CLASS_NAME = "csi-azure-{type}"
 
 
 class WriteSecret(Addition):
@@ -161,6 +162,38 @@ class UpdateControllerDeployment(UpdateController):
         update_toleration(obj, self._adjuster)
 
 
+class CreateStorageClass(Addition):
+    """Create vmware storage class."""
+
+    def __init__(self, manifests: "Manifests", sc_type: str):
+        super().__init__(manifests)
+        self.type = sc_type
+
+    def __call__(self) -> Optional[AnyResource]:
+        """Craft the storage class object."""
+        storage_name = STORAGE_CLASS_NAME.format(type=self.type)
+        log.info(f"Creating storage class {storage_name}")
+        return from_dict(
+            dict(
+                kind="StorageClass",
+                apiVersion="storage.k8s.io/v1",
+                metadata=dict(
+                    name=storage_name,
+                    annotations={
+                        "storageclass.kubernetes.io/is-default-class": "true",
+                    },
+                ),
+                provisioner="disk.csi.azure.com",
+                parameters=dict(
+                    skuName="Standard_LRS",
+                ),
+                reclaimPolicy="Delete",
+                volumeBindingMode="WaitForFirstConsumer",
+                allowVolumeExpansion=True,
+            )
+        )
+
+
 class AzureDiskManifests(Manifests):
     """Deployment Specific details for the cs-azuredisk-driver."""
 
@@ -171,6 +204,7 @@ class AzureDiskManifests(Manifests):
             UpdateControllerDeployment(self),
             UpdateNode(self),
             WriteSecret(self),
+            CreateStorageClass(self, "default"),  # creates csi-azure-default
         ]
         super().__init__("disk-driver-azure", charm.model, "upstream/azure_disk", manipulations)
         self.charm_config = charm_config

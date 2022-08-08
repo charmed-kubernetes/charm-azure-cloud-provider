@@ -50,20 +50,6 @@ async def test_provider_ids(kubernetes):
 @pytest.fixture
 async def pod_with_volume(kubernetes, ops_test):
     name = ops_test.model_name
-    storage_class = from_dict(
-        dict(
-            kind="StorageClass",
-            apiVersion="storage.k8s.io/v1",
-            metadata=dict(name=name, labels=dict(claim_pvc="sc")),
-            provisioner="disk.csi.azure.com",
-            parameters=dict(
-                skuName="Standard_LRS",
-            ),
-            reclaimPolicy="Delete",
-            volumeBindingMode="WaitForFirstConsumer",
-            allowVolumeExpansion=True,
-        )
-    )
     pvc = from_dict(
         dict(
             kind="PersistentVolumeClaim",
@@ -72,7 +58,7 @@ async def pod_with_volume(kubernetes, ops_test):
             spec=dict(
                 accessModes=["ReadWriteOnce"],
                 resources=dict(requests=dict(storage="10Mi")),
-                storageClassName=name,
+                storageClassName="csi-azure-default",
             ),
         )
     )
@@ -97,16 +83,13 @@ async def pod_with_volume(kubernetes, ops_test):
         )
     )
     await asyncio.gather(
-        *[
-            kubernetes.create(rsc, namespace=rsc.metadata.namespace)
-            for rsc in [storage_class, pvc, busybox]
-        ]
+        *[kubernetes.create(rsc, namespace=rsc.metadata.namespace) for rsc in [pvc, busybox]]
     )
     yield busybox
     await asyncio.gather(
         *[
             kubernetes.delete(type(rsc), name=name, namespace=rsc.metadata.namespace)
-            for rsc in [storage_class, pvc, busybox]
+            for rsc in [pvc, busybox]
         ]
     )
 
