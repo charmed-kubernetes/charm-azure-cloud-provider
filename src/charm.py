@@ -20,6 +20,7 @@ from ops.model import (
 )
 
 from config import CharmConfig
+from disk_manifests import AzureDiskManifests
 from provider_manifests import AzureProviderManifests
 from requires_azure_integration import AzureIntegrationRequires
 from requires_certificates import CertificatesRequires
@@ -58,7 +59,14 @@ class AzureCloudProviderCharm(CharmBase):
                 self.integrator,
                 self.control_plane_relation,
                 self.kube_control,
-            )
+            ),
+            AzureDiskManifests(
+                self,
+                self.charm_config,
+                self.integrator,
+                self.control_plane_relation,
+                self.kube_control,
+            ),
         )
 
         self.framework.observe(self.on.kube_control_relation_created, self._kube_control)

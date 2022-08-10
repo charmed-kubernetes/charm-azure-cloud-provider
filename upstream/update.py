@@ -37,6 +37,20 @@ SOURCES = dict(
         version_parser=VersionInfo.parse,
         minimum="v1.0.0",
     ),
+    azure_disk=dict(
+        repo="kubernetes-sigs/azuredisk-csi-driver",
+        release_tags=True,
+        manifests=[
+            "csi-azuredisk-controller.yaml",
+            "csi-azuredisk-driver.yaml",
+            "csi-azuredisk-node.yaml",
+            "rbac-csi-azuredisk-controller.yaml",
+            "rbac-csi-azuredisk-node.yaml",
+        ],
+        path="deploy",
+        version_parser=VersionInfo.parse,
+        minimum="v1.19.0",
+    ),
 )
 FILEDIR = Path(__file__).parent
 VERSION_RE = re.compile(r"^v\d+\.\d+")

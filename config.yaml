@@ -119,13 +119,31 @@ options:
       directory of https://github.com/kubernetes-sigs/cloud-provider-azure/
 
       example)
-        juju config azure-cloud-provider provider-release='v1.24.1'
+        juju config azure-cloud-provider provider-release='v1.24.0'
       
       A list of supported versions is available through the action:
         juju run-action azure-cloud-provider/0 list-releases --wait
       
       To reset by to the latest supported by the charm use:
         juju config azure-cloud-provider --reset provider-release
+      
+      The current release deployed is available by viewing
+        juju status azure-cloud-provider
+
+  azuredisk-release:
+    type: string
+    description: |
+      Specify the version of csi-azuredisk as defined by the `releases`
+      directory of https://github.com/kubernetes-sigs/azuredisk-csi-driver/
+
+      example)
+        juju config azure-cloud-provider azuredisk-release='v1.21.0'
+      
+      A list of supported versions is available through the action:
+        juju run-action azure-cloud-provider/0 list-releases --wait
+      
+      Reset to the default release supported by the charm with:
+        juju config azure-cloud-provider --reset azuredisk-release
       
       The current release deployed is available by viewing
         juju status azure-cloud-provider
