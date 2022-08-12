@@ -1,11 +1,13 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 import asyncio
+import ipaddress
 import logging
 import shlex
 from pathlib import Path
 
 import pytest
+from lightkube import AsyncClient
 from lightkube.codecs import from_dict
 from lightkube.resources.core_v1 import Node
 
@@ -105,3 +107,97 @@ async def test_create_persistent_volume(kubernetes, pod_with_volume):
     except asyncio.TimeoutError as e:
         raise AssertionError("Timeout waiting for pod to be ready") from e
     assert pod.status.phase == "Running"
+
+
+@pytest.fixture
+async def loadbalanced_service(kubernetes, ops_test):
+    name = ops_test.model_name
+    deployment = from_dict(
+        dict(
+            kind="Deployment",
+            apiVersion="apps/v1",
+            metadata=dict(name=name, labels=dict(app=name)),
+            spec=dict(
+                selector=dict(matchLabels=dict(app=name)),
+                template=dict(
+                    metadata=dict(labels=dict(app=name)),
+                    spec=dict(
+                        containers=[
+                            dict(
+                                image="gcr.io/google-samples/node-hello:1.0",
+                                name="node-hello",
+                                ports=[dict(containerPort=8080, protocol="TCP")],
+                            )
+                        ]
+                    ),
+                ),
+            ),
+        )
+    )
+    service = from_dict(
+        dict(
+            kind="Service",
+            apiVersion="v1",
+            metadata=dict(name=name, labels=dict(hello_svc="svc")),
+            spec=dict(
+                type="LoadBalancer",
+                selector=dict(app=name),
+                ports=[dict(port=8080, protocol="TCP", targetPort=8080)],
+            ),
+        )
+    )
+
+    await asyncio.gather(
+        *[
+            kubernetes.create(rsc, namespace=rsc.metadata.namespace)
+            for rsc in [deployment, service]
+        ]
+    )
+    yield deployment, service
+    await asyncio.gather(
+        *[
+            kubernetes.delete(type(rsc), name=name, namespace=rsc.metadata.namespace)
+            for rsc in [deployment, service]
+        ]
+    )
+
+
+async def test_create_service_loadbalancer(kubernetes: AsyncClient, loadbalanced_service):
+    _dep, _svc = loadbalanced_service
+
+    res, name, namespace = type(_dep), _dep.metadata.name, _dep.metadata.namespace
+    try:
+        deployment = await asyncio.wait_for(
+            kubernetes.wait(res, name, namespace=namespace, for_conditions=["Available"]),
+            timeout=30.0,
+        )
+    except asyncio.TimeoutError as e:
+        raise AssertionError("Timeout waiting for deployment to be ready") from e
+
+    # confirm deployment
+    assert deployment.status.availableReplicas == 1
+
+    res, name, namespace = type(_svc), _svc.metadata.name, _svc.metadata.namespace
+
+    async def get_and_check():
+        while True:
+            service = await kubernetes.get(res, name, namespace=namespace)
+            if not service.status.loadBalancer.ingress:
+                log.info("Loadbalancer service not yet ready.")
+                await asyncio.sleep(5)
+                continue
+
+            (svc_ip,) = map(lambda ingress: ingress.ip, service.status.loadBalancer.ingress)
+            try:
+                ipaddress.ip_address(svc_ip)
+                break
+            except ValueError:
+                log.info(f"Loadbalancer service ip wasn't an IP address {svc_ip}.")
+                pass
+            await asyncio.sleep(5)
+
+    # confirm loadbalancer goes active
+    try:
+        await asyncio.wait_for(get_and_check(), timeout=30.0)
+    except asyncio.TimeoutError as e:
+        raise AssertionError("Timeout waiting for service to be ready") from e
