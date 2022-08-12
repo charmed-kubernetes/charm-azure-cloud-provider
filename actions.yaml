@@ -14,7 +14,9 @@ list-resources:
       description: |
         Space separated list of kubernetes resource types to filter list result
 scrub-resources:
-  description: Remove deployments other than the current one
+  description: |
+    Remove kubernetes resources created by this charm which should no
+    longer be in the cluster.
   params:
     controller:
       type: string
@@ -26,3 +28,20 @@ scrub-resources:
       default: ""
       description: |
         Space separated list of kubernetes resource types to filter scrubbing   
+sync-resources:
+  description: |
+    Add kubernetes resources which should be created by this charm which aren't
+    present within the cluster.
+  params:
+    controller:
+      type: string
+      default: ""
+      description: |
+        Filter list based on "provider" or "storage" manifests.
+    resources:
+      type: string
+      default: ""
+      description: |
+        Space separated list of kubernetes resource types
+        to use a filter during the sync. This helps limit
+        which missing resources are applied.
