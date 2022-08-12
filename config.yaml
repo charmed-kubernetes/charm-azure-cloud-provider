@@ -86,6 +86,15 @@ options:
     type: string
     default: "standard"
 
+  load-balancer-sku:
+    description: >-
+      Sku of Load Balancer and Public IP. Candidate values are: basic and standard.
+
+      See an analysis of the different skus:
+      https://docs.microsoft.com/en-us/azure/load-balancer/skus
+    type: string
+    default: "standard"
+
   control-node-selector:
     description: |
       Specifies to which nodes this charm adds the azure deployments
