@@ -266,3 +266,27 @@ def test_action_scrub_resources(harness, lk_client, mock_get_response, caplog):
     mock_delete.assert_called_with(
         type(expected), expected.metadata.name, namespace=expected.metadata.namespace
     )
+
+
+@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
+def test_action_sync_resources(harness, lk_client, mock_get_response, caplog):
+    class MockApiError(ApiError):
+        def __init__(self):
+            pass
+
+    harness.begin_with_initial_hooks()
+    event = mock.MagicMock()
+    event.params = {"resources": "Secret", "controller": "cloud-provider-azure"}
+    with mock.patch.object(lk_client, "list", return_value=[]):
+        with mock.patch.object(lk_client, "get", side_effect=MockApiError):
+            with mock.patch.object(lk_client, "apply") as mock_apply:
+                harness.charm._sync_resources(event)
+    args, kwargs = mock_apply.call_args
+    (resource,) = args
+    assert all(
+        [
+            resource.kind == "Secret",
+            resource.metadata.name == "azure-cloud-config",
+            resource.metadata.namespace == "kube-system",
+        ]
+    ) and kwargs == {"force": True}, "Failed to create secret"
