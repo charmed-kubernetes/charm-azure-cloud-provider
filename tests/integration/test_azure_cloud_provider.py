@@ -124,7 +124,7 @@ async def loadbalanced_service(kubernetes, ops_test):
                     spec=dict(
                         containers=[
                             dict(
-                                image="gcr.io/google-samples/node-hello:1.0",
+                                image="gcr.io/google-samples/hello-app:1.0",
                                 name="node-hello",
                                 ports=[dict(containerPort=8080, protocol="TCP")],
                             )
