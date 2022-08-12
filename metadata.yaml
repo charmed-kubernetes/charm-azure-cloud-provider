@@ -6,6 +6,7 @@ summary: Runs the Azure Cloud Provider in the cluster.
 description: >-
   The Azure cloud provider provides the Kubernetes cluster access to
   native resources from Azure, such as storage and load balancers.
+docs: https://discourse.charmhub.io/t/azure-cloud-provider-docs-index/6879
 subordinate: true
 provides:
   external-cloud-provider:

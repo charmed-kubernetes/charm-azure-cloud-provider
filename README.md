@@ -2,7 +2,7 @@
 
 ## Description
 
-This subordinate charm manages the Cloud Controller and Node Controller components of Azure.
+This subordinate charm manages the Cloud Controller and AzureDisk Storage controller components of Azure.
 
 ## Usage
 
@@ -34,9 +34,10 @@ kubectl describe nodes |egrep "Taints:|Name:|Provider"
 * Requires a `charmed-kubernetes` deployment on a azure cloud launched by juju
 * Deploy the `azure-integrator` charm into the model using `--trust` so juju provided azure credentials
 * Deploy the `azure-cloud-provider` charm in the model relating to the integrator and to charmed-kubernetes components
-* Once the model is active/idle, the cloud-provider charm will have successfully deployed the azure cloud controller 
-  and node controllers in the kube-system namespace
+* Once the model is active/idle, the cloud-provider charm will have successfully deployed the azure cloud controller and an azure-disk storage controller on each node in the kube-system namespace.
 * Confirm the `ProviderID` is set on each node
+* Confirm the Storage Class `azure-csi-default` is created
+
 
 ## Contributing
 
