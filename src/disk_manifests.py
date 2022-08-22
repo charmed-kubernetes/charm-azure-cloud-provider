@@ -4,9 +4,9 @@
 import base64
 import json
 import logging
+import pickle
 from hashlib import md5
 from typing import Dict, List, Optional
-import pickle
 
 import humps
 from lightkube.codecs import AnyResource, from_dict

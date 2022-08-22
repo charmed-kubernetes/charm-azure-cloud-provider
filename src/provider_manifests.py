@@ -3,18 +3,13 @@
 """Implementation of azure cloud provider specific details of the kubernetes manifests."""
 import json
 import logging
+import pickle
 from hashlib import md5
 from typing import Dict, Optional
-import pickle
 
 import humps
 from lightkube.models.core_v1 import Toleration
-from ops.manifests import (
-    ConfigRegistry,
-    ManifestLabel,
-    Manifests,
-    Patch,
-)
+from ops.manifests import ConfigRegistry, ManifestLabel, Manifests, Patch
 
 log = logging.getLogger(__file__)
 SECRET_NAME = "azure-cloud-config"
@@ -79,7 +74,7 @@ class UpdateNode(Patch):
             Toleration(
                 key=taint.key,
                 value=taint.value,
-                effect=taint.effect,                
+                effect=taint.effect,
             )
             for taint in self.manifests.config.get("control-node-taints")
             if taint.key not in current_keys
@@ -127,7 +122,7 @@ class UpdateController(Patch):
             Toleration(
                 key=taint.key,
                 value=taint.value,
-                effect=taint.effect,                
+                effect=taint.effect,
             )
             for taint in self.manifests.config.get("control-node-taints")
             if taint.key not in current_keys
