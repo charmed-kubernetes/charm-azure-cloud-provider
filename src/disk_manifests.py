@@ -6,6 +6,7 @@ import json
 import logging
 from hashlib import md5
 from typing import Dict, List, Optional
+import pickle
 
 import humps
 from lightkube.codecs import AnyResource, from_dict
@@ -197,7 +198,7 @@ class CreateStorageClass(Addition):
 class AzureDiskManifests(Manifests):
     """Deployment Specific details for the cs-azuredisk-driver."""
 
-    def __init__(self, charm, charm_config, integrator, control_plane, kube_control):
+    def __init__(self, charm, charm_config, integrator, kube_control):
         manipulations = [
             ManifestLabel(self),
             ConfigRegistry(self),
@@ -209,7 +210,6 @@ class AzureDiskManifests(Manifests):
         super().__init__("disk-driver-azure", charm.model, "upstream/azure_disk", manipulations)
         self.charm_config = charm_config
         self.integrator = integrator
-        self.control_plane = control_plane
         self.kube_control = kube_control
 
     @property
@@ -232,11 +232,12 @@ class AzureDiskManifests(Manifests):
                 }
             )
         if self.kube_control.is_ready:
-            config["image-registry"] = self.kube_control.registry_location
-
-        if self.control_plane:
-            config["control-node-selector"] = {"juju-application": self.control_plane.app.name}
-            config["replicas"] = len(self.control_plane.units)
+            config["image-registry"] = self.kube_control.get_registry_location()
+            config["control-node-taints"] = self.kube_control.get_controller_taints()
+            config["control-node-selector"] = self.kube_control.get_controller_labels() or {
+                "juju-application": self.kube_control.relation.name
+            }
+            config["replicas"] = len(self.kube_control.relation.units)
 
         config.update(**self.charm_config.available_data)
 
@@ -250,7 +251,7 @@ class AzureDiskManifests(Manifests):
 
     def hash(self) -> int:
         """Calculate a hash of the current configuration."""
-        return int(md5(json.dumps(self.config, sort_keys=True).encode("utf8")).hexdigest(), 16)
+        return int(md5(pickle.dumps(self.config)).hexdigest(), 16)
 
     def evaluate(self) -> Optional[str]:
         """Determine if manifest_config can be applied to manifests."""

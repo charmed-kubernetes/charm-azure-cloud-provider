@@ -4,7 +4,8 @@
 import json
 import logging
 from hashlib import md5
-from typing import Dict, List, Optional
+from typing import Dict, Optional
+import pickle
 
 import humps
 from lightkube.models.core_v1 import Toleration
@@ -13,7 +14,6 @@ from ops.manifests import (
     ManifestLabel,
     Manifests,
     Patch,
-    update_toleration,
 )
 
 log = logging.getLogger(__file__)
@@ -68,37 +68,24 @@ class UpdateNode(Patch):
     """Update the node manager daemonset as a patch."""
 
     NAME = "cloud-node-manager"
-    REQUIRED = {
-        "control-node-selector",
-    }
-
-    def _adjuster(self, toleration: Toleration) -> List[Toleration]:
-        node_selector = self.manifests.config.get("control-node-selector", {})
-        if toleration.key and toleration.key.startswith("node-role.kubernetes.io"):
-            return [
-                Toleration(
-                    key=key,
-                    value=value,
-                    effect=toleration.effect,
-                    operator=toleration.operator,
-                    tolerationSeconds=toleration.tolerationSeconds,
-                )
-                for key, value in node_selector.items()
-            ]
-        return [toleration]
 
     def __call__(self, obj):
         """Update the DaemonSet object in the cloud-node-manager."""
         if not (obj.kind == "DaemonSet" and obj.metadata.name == self.NAME):
             return
-        node_selector = self.manifests.config.get("control-node-selector")
-        if not isinstance(node_selector, dict):
-            log.error(
-                f"provider control-node-selector was an unexpected type: {type(node_selector)}"
-            )
-            return
 
-        update_toleration(obj, self._adjuster)
+        current_keys = {toleration.key for toleration in obj.spec.template.spec.tolerations}
+        missing_tolerations = [
+            Toleration(
+                key=taint.key,
+                value=taint.value,
+                effect=taint.effect,                
+            )
+            for taint in self.manifests.config.get("control-node-taints")
+            if taint.key not in current_keys
+        ]
+        obj.spec.template.spec.tolerations += missing_tolerations
+        log.info("Adding provider tolerations from control-plane")
 
         container = next(
             filter(lambda c: c.name == self.NAME, obj.spec.template.spec.containers), None
@@ -121,19 +108,6 @@ class UpdateController(Patch):
         "route-reconciliation-period",
     }
 
-    def _adjuster(self, toleration: Toleration) -> List[Toleration]:
-        node_selector = self.manifests.config.get("control-node-selector", {})
-        return [
-            Toleration(
-                key=key,
-                value=value,
-                effect=toleration.effect,
-                operator=toleration.operator,
-                tolerationSeconds=toleration.tolerationSeconds,
-            )
-            for key, value in node_selector.items()
-        ]
-
     def _update_args(self, spec) -> None:
         cluster_tag = self.manifests.config.get("cluster-tag")
         container = next(filter(lambda c: c.name == self.NAME, spec.containers), None)
@@ -148,6 +122,19 @@ class UpdateController(Patch):
                 arguments["--cluster-name"] = cluster_tag
             container.args = [f"{key}={value}" for key, value in arguments.items()]
 
+        current_keys = {toleration.key for toleration in spec.tolerations}
+        missing_tolerations = [
+            Toleration(
+                key=taint.key,
+                value=taint.value,
+                effect=taint.effect,                
+            )
+            for taint in self.manifests.config.get("control-node-taints")
+            if taint.key not in current_keys
+        ]
+        spec.tolerations += missing_tolerations
+        log.info("Adding provider tolerations from control-plane")
+
 
 class UpdateControllerPod(UpdateController):
     """Update the Pod object to reference juju supplied node selector."""
@@ -156,14 +143,7 @@ class UpdateControllerPod(UpdateController):
         """Update the Deployment object in the deployment."""
         if not (obj.kind == "Pod" and obj.metadata.name == self.NAME):
             return
-        node_selector = self.manifests.config.get("control-node-selector")
-        if not isinstance(node_selector, dict):
-            log.error(
-                f"provider control-node-selector was an unexpected type: {type(node_selector)}"
-            )
-            return
 
-        update_toleration(obj, self._adjuster)
         self._update_args(obj.spec)
 
 
@@ -189,14 +169,13 @@ class UpdateControllerDeployment(UpdateController):
             log.info(f"Replacing default replicas of {obj.spec.replicas} to {replicas}")
             obj.spec.replicas = replicas
 
-        update_toleration(obj, self._adjuster)
         self._update_args(obj.spec.template.spec)
 
 
 class AzureProviderManifests(Manifests):
     """Deployment Specific details for the azure-cloud-provider."""
 
-    def __init__(self, charm, charm_config, integrator, control_plane, kube_control):
+    def __init__(self, charm, charm_config, integrator, kube_control):
         manipulations = [
             ManifestLabel(self),
             ConfigRegistry(self),
@@ -210,7 +189,6 @@ class AzureProviderManifests(Manifests):
         )
         self.charm_config = charm_config
         self.integrator = integrator
-        self.control_plane = control_plane
         self.kube_control = kube_control
 
     @property
@@ -233,12 +211,13 @@ class AzureProviderManifests(Manifests):
                 }
             )
         if self.kube_control.is_ready:
-            config["image-registry"] = self.kube_control.registry_location
-            config["cluster-tag"] = self.kube_control.cluster_tag
-
-        if self.control_plane:
-            config["control-node-selector"] = {"juju-application": self.control_plane.app.name}
-            config["replicas"] = len(self.control_plane.units)
+            config["image-registry"] = self.kube_control.get_registry_location()
+            config["cluster-tag"] = self.kube_control.get_cluster_tag()
+            config["control-node-taints"] = self.kube_control.get_controller_taints()
+            config["control-node-selector"] = self.kube_control.get_controller_labels() or {
+                "juju-application": self.kube_control.relation.name
+            }
+            config["replicas"] = len(self.kube_control.relation.units)
 
         config.update(**self.charm_config.available_data)
 
@@ -252,11 +231,11 @@ class AzureProviderManifests(Manifests):
 
     def hash(self) -> int:
         """Calculate a hash of the current configuration."""
-        return int(md5(json.dumps(self.config, sort_keys=True).encode("utf8")).hexdigest(), 16)
+        return int(md5(pickle.dumps(self.config)).hexdigest(), 16)
 
     def evaluate(self) -> Optional[str]:
         """Determine if manifest_config can be applied to manifests."""
-        props = UpdateSecret.REQUIRED | UpdateControllerDeployment.REQUIRED | UpdateNode.REQUIRED
+        props = UpdateSecret.REQUIRED | UpdateControllerDeployment.REQUIRED
         for prop in props:
             value = self.config.get(prop)
             if not value:

@@ -9,6 +9,7 @@ from typing import Optional
 
 from ops.charm import CharmBase
 from ops.framework import StoredState
+from ops.interface_kube_control import KubeControlRequirer
 from ops.main import main
 from ops.manifests import Collector
 from ops.model import (
@@ -24,7 +25,6 @@ from disk_manifests import AzureDiskManifests
 from provider_manifests import AzureProviderManifests
 from requires_azure_integration import AzureIntegrationRequires
 from requires_certificates import CertificatesRequires
-from requires_kube_control import KubeControlRequires
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +41,7 @@ class AzureCloudProviderCharm(CharmBase):
 
         # Relation Validator and datastore
         self.integrator = AzureIntegrationRequires(self)
-        self.kube_control = KubeControlRequires(self)
+        self.kube_control = KubeControlRequirer(self)
         self.certificates = CertificatesRequires(self)
         # Config Validator and datastore
         self.charm_config = CharmConfig(self)
@@ -57,14 +57,12 @@ class AzureCloudProviderCharm(CharmBase):
                 self,
                 self.charm_config,
                 self.integrator,
-                self.control_plane_relation,
                 self.kube_control,
             ),
             AzureDiskManifests(
                 self,
                 self.charm_config,
                 self.integrator,
-                self.control_plane_relation,
                 self.kube_control,
             ),
         )
@@ -126,17 +124,12 @@ class AzureCloudProviderCharm(CharmBase):
             self.unit.set_workload_version(self.collector.short_version)
             self.app.status = ActiveStatus(self.collector.long_version)
 
-    @property
-    def control_plane_relation(self) -> Optional[Relation]:
-        """Find a control-plane-node external-cloud-provider relation."""
-        return self.model.get_relation("external-cloud-provider")
-
     def _kube_control(self, event=None):
         self.kube_control.set_auth_request(self.unit.name)
         return self._merge_config(event)
 
     def _cluster_tag(self, event=None):
-        cluster_tag = self.kube_control.cluster_tag
+        cluster_tag = self.kube_control.get_cluster_tag()
         if self.stored.cluster_tag != cluster_tag:
             log.info(f"Updating cluster-tag to {cluster_tag}")
             self.stored.cluster_tag = cluster_tag
