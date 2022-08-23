@@ -72,7 +72,9 @@ class AzureCloudProviderCharm(CharmBase):
         self.framework.observe(self.on.external_cloud_provider_relation_joined, self._merge_config)
         self.framework.observe(self.on.external_cloud_provider_relation_broken, self._merge_config)
 
-        self.framework.observe(self.on.azure_integration_relation_joined, self._merge_config)
+        self.framework.observe(
+            self.on.azure_integration_relation_joined, self._request_azure_features
+        )
         self.framework.observe(self.on.azure_integration_relation_changed, self._merge_config)
         self.framework.observe(self.on.azure_integration_relation_broken, self._merge_config)
 
@@ -160,6 +162,11 @@ class AzureCloudProviderCharm(CharmBase):
             return False
         self.CA_CERT_PATH.write_text(self.certificates.ca)
         return True
+
+    def _request_azure_features(self, event):
+        self.integrator.enable_loadbalancer_management()
+        self.integrator.enable_block_storage_management()
+        self._merge_config(event=event)
 
     def _check_azure_relation(self, event):
         self.unit.status = MaintenanceStatus("Evaluating azure.")
