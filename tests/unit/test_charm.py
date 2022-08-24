@@ -77,7 +77,7 @@ def kube_control():
         kube_control.get_cluster_tag.return_value = "kubernetes-thing"
         kube_control.get_controller_taints.return_value = []
         kube_control.get_controller_labels.return_value = []
-        kube_control.relation.name = "kubernetes-control-plane"
+        kube_control.relation.app.name = "kubernetes-control-plane"
         kube_control.relation.units = [f"kubernetes-control-plane/{_}" for _ in range(2)]
         yield kube_control
 
@@ -159,7 +159,7 @@ def test_waits_for_config(harness, lk_client, caplog):
     caplog.clear()
     harness.update_config(
         {
-            "control-node-selector": 'gcp.io/my-control-node=""',
+            "control-node-selector": "gcp.io/my-control-node=",
         }
     )
     provider_messages = {r.message for r in caplog.records if "provider" in r.filename}
