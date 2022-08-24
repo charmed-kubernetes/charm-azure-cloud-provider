@@ -76,7 +76,7 @@ class UpdateNode(Patch):
                 value=taint.value,
                 effect=taint.effect,
             )
-            for taint in self.manifests.config.get("control-node-taints")
+            for taint in self.manifests.config.get("control-node-taints", [])
             if taint.key not in current_keys
         ]
         obj.spec.template.spec.tolerations += missing_tolerations
@@ -124,7 +124,7 @@ class UpdateController(Patch):
                 value=taint.value,
                 effect=taint.effect,
             )
-            for taint in self.manifests.config.get("control-node-taints")
+            for taint in self.manifests.config.get("control-node-taints", [])
             if taint.key not in current_keys
         ]
         spec.tolerations += missing_tolerations
