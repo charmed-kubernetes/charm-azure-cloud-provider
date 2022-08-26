@@ -2,7 +2,6 @@ description: Overlay for attaching current charm
 applications:
   kubernetes-control-plane:
     options:
-      register-with-taints: ""  # requires kubelet on control-plane
       allow-privileged: "true"
   calico:
     options:

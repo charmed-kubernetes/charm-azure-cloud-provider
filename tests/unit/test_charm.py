@@ -11,7 +11,7 @@ import ops.testing
 import pytest
 import yaml
 from lightkube import ApiError
-from ops.model import BlockedStatus, WaitingStatus
+from ops.model import BlockedStatus, MaintenanceStatus, WaitingStatus
 
 from charm import AzureCloudProviderCharm
 
@@ -70,11 +70,15 @@ def certificates():
 
 @pytest.fixture()
 def kube_control():
-    with mock.patch("charm.KubeControlRequires") as mocked:
+    with mock.patch("charm.KubeControlRequirer") as mocked:
         kube_control = mocked.return_value
         kube_control.evaluate_relation.return_value = None
-        kube_control.registry_location = "rocks.canonical.com/cdk"
-        kube_control.cluster_tag = "kubernetes-thing"
+        kube_control.get_registry_location.return_value = "rocks.canonical.com/cdk"
+        kube_control.get_cluster_tag.return_value = "kubernetes-thing"
+        kube_control.get_controller_taints.return_value = []
+        kube_control.get_controller_labels.return_value = []
+        kube_control.relation.app.name = "kubernetes-control-plane"
+        kube_control.relation.units = [f"kubernetes-control-plane/{_}" for _ in range(2)]
         yield kube_control
 
 
@@ -111,7 +115,7 @@ def test_waits_for_certificates(harness):
     assert charm.unit.status.message == "Missing required kube-control relation"
 
 
-@mock.patch("requires_kube_control.KubeControlRequires.create_kubeconfig")
+@mock.patch("ops.interface_kube_control.KubeControlRequirer.create_kubeconfig")
 @pytest.mark.usefixtures("integrator", "certificates")
 def test_waits_for_kube_control(mock_create_kubeconfig, harness):
     harness.begin_with_initial_hooks()
@@ -143,11 +147,8 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
             mock.call(charm.CA_CERT_PATH, "/home/ubuntu/.kube/config", "ubuntu", charm.unit.name),
         ]
     )
-    assert isinstance(charm.unit.status, BlockedStatus)
-    assert (
-        charm.unit.status.message
-        == "Provider manifests waiting for definition of control-node-selector"
-    )
+    assert isinstance(charm.unit.status, MaintenanceStatus)
+    assert charm.unit.status.message == "Deploying Azure Cloud Provider"
 
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
@@ -158,12 +159,13 @@ def test_waits_for_config(harness, lk_client, caplog):
     caplog.clear()
     harness.update_config(
         {
-            "control-node-selector": 'gcp.io/my-control-node=""',
+            "control-node-selector": "gcp.io/my-control-node=",
         }
     )
     provider_messages = {r.message for r in caplog.records if "provider" in r.filename}
 
     assert provider_messages == {
+        "Adding provider tolerations from control-plane",
         'Applying provider Control Node Selector as gcp.io/my-control-node: ""',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
@@ -180,6 +182,7 @@ def test_waits_for_config(harness, lk_client, caplog):
     provider_messages = {r.message for r in caplog.records if "provider" in r.filename}
 
     assert provider_messages == {
+        "Adding provider tolerations from control-plane",
         'Applying provider Control Node Selector as juju-application: "kubernetes-control-plane"',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
