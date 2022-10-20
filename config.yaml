@@ -112,7 +112,7 @@ options:
     type: string
     default: "mcr.microsoft.com"
     description: |
-      Source registry of metrics server images.
+      Source registry of microsoft provider images.
 
       By setting to a value, each image listed in the releases manifest
       has its image-registry replaced.
@@ -120,9 +120,9 @@ options:
       If unset, the manifests will use the image registry from the kube-control relation
 
       example)
-        juju config kubernetes-metrics-server image-registry=''
+        juju config azure-cloud-provider image-registry=''
 
-        juju config kubernetes-metrics-server --reset image-registry
+        juju config azure-cloud-provider --reset image-registry
 
   provider-release:
     type: string
