@@ -10,7 +10,7 @@ from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.interface_kube_control import KubeControlRequirer
 from ops.main import main
-from ops.manifests import Collector
+from ops.manifests import Collector, ManifestClientError
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 
 from config import CharmConfig
@@ -105,7 +105,11 @@ class AzureCloudProviderCharm(CharmBase):
     def _sync_resources(self, event):
         manifests = event.params.get("controller", "")
         resources = event.params.get("resources", "")
-        return self.collector.apply_missing_resources(event, manifests, resources)
+        try:
+            self.collector.apply_missing_resources(event, manifests, resources)
+        except ManifestClientError:
+            msg = "Failed to apply missing resources. API Server unavailable."
+            event.set_results({"result": msg})
 
     def _update_status(self, _):
         if not self.stored.deployed:
@@ -119,11 +123,11 @@ class AzureCloudProviderCharm(CharmBase):
             self.unit.set_workload_version(self.collector.short_version)
             self.app.status = ActiveStatus(self.collector.long_version)
 
-    def _kube_control(self, event=None):
+    def _kube_control(self, event):
         self.kube_control.set_auth_request(self.unit.name)
         return self._merge_config(event)
 
-    def _cluster_tag(self, event=None):
+    def _cluster_tag(self, event):
         cluster_tag = self.kube_control.get_cluster_tag()
         if self.stored.cluster_tag != cluster_tag:
             log.info(f"Updating cluster-tag to {cluster_tag}")
@@ -187,7 +191,7 @@ class AzureCloudProviderCharm(CharmBase):
             return False
         return True
 
-    def _merge_config(self, event=None):
+    def _merge_config(self, event):
         if not self._check_azure_relation(event):
             return
 
@@ -214,22 +218,32 @@ class AzureCloudProviderCharm(CharmBase):
 
         self.stored.config_hash = new_hash
         self.stored.deployed = False
-        self._install_or_upgrade()
+        self._install_or_upgrade(event)
 
-    def _install_or_upgrade(self, _event=None):
+    def _install_or_upgrade(self, event):
         if not self.stored.config_hash:
             return
         self.unit.status = MaintenanceStatus("Deploying Azure Cloud Provider")
         self.unit.set_workload_version("")
         for controller in self.collector.manifests.values():
-            controller.apply_manifests()
+            try:
+                controller.apply_manifests()
+            except ManifestClientError:
+                self.unit.status = WaitingStatus("Waiting for kube-apiserver")
+                event.defer()
+                return
         self.stored.deployed = True
 
-    def _cleanup(self, _event):
+    def _cleanup(self, event):
         if self.stored.config_hash:
             self.unit.status = MaintenanceStatus("Cleaning up Azure Cloud Provider")
             for controller in self.collector.manifests.values():
-                controller.delete_manifests(ignore_unauthorized=True)
+                try:
+                    controller.delete_manifests(ignore_unauthorized=True)
+                except ManifestClientError:
+                    self.unit.status = WaitingStatus("Waiting for kube-apiserver")
+                    event.defer()
+                    return
         self.unit.status = MaintenanceStatus("Shutting down")
 
 
