@@ -11,6 +11,7 @@ import ops.testing
 import pytest
 import yaml
 from lightkube import ApiError
+from ops.manifests import ManifestClientError
 from ops.model import BlockedStatus, MaintenanceStatus, WaitingStatus
 
 from charm import AzureCloudProviderCharm
@@ -293,3 +294,45 @@ def test_action_sync_resources(harness, lk_client, mock_get_response, caplog):
             resource.metadata.namespace == "kube-system",
         ]
     ) and kwargs == {"force": True}, "Failed to create secret"
+
+
+def test_install_or_upgrade_apierror(harness, lk_client: mock.MagicMock):
+    harness.begin_with_initial_hooks()
+    with mock.patch.object(lk_client, "apply", side_effect=ManifestClientError("foo")):
+        charm = harness.charm
+        charm.stored.config_hash = "mock_hash"
+        mock_event = mock.MagicMock()
+        charm._install_or_upgrade(mock_event)
+        mock_event.defer.assert_called_once()
+        assert isinstance(charm.unit.status, WaitingStatus)
+
+
+def test_cleanup_apierror(harness, lk_client: mock.MagicMock):
+    harness.begin_with_initial_hooks()
+    with mock.patch.object(lk_client, "delete", side_effect=ManifestClientError("foo")):
+        charm = harness.charm
+        charm.stored.config_hash = "mock_hash"
+        mock_event = mock.MagicMock()
+        charm._cleanup(mock_event)
+        mock_event.defer.assert_called_once()
+        assert isinstance(charm.unit.status, WaitingStatus)
+
+
+@pytest.mark.parametrize(
+    "side_effect,message",
+    [
+        pytest.param(
+            ManifestClientError("foo"),
+            "Failed to apply missing resources. API Server unavailable.",
+            id="API Unavailable",
+        )
+    ],
+)
+def test_sync_resources_message(harness, lk_client: mock.MagicMock, side_effect, message):
+    with mock.patch.object(lk_client, "list", side_effect=side_effect):
+        with mock.patch.object(lk_client, "apply", side_effect=side_effect):
+            harness.begin_with_initial_hooks()
+            charm = harness.charm
+            mock_event = mock.MagicMock()
+            charm._sync_resources(mock_event)
+            mock_event.set_results.assert_called_once_with({"result": message})
