@@ -19,12 +19,12 @@ bases:
     - name: "ubuntu"
       channel: "22.04"
       architectures:
-        - arm
+        - armhf
     run-on:
     - name: "ubuntu"
       channel: "22.04"
       architectures:
-        - arm
+        - armhf
   - build-on:
     - name: "ubuntu"
       channel: "22.04"
