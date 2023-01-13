@@ -17,7 +17,7 @@ from ops.manifests import (
     ManifestLabel,
     Manifests,
     Patch,
-    update_toleration,
+    update_tolerations,
 )
 
 log = logging.getLogger(__file__)
@@ -122,19 +122,20 @@ class UpdateController(Patch):
         "control-node-selector",
     }
 
-    def _adjuster(self, toleration: Toleration) -> List[Toleration]:
+    def _adjuster(self, tolerations: List[Toleration]) -> List[Toleration]:
         node_selector = self.manifests.config.get("control-node-selector", {})
-        if "control-plane" in toleration.key:
-            return [
-                Toleration(
-                    key=key,
-                    value=value,
-                    effect=toleration.effect,
-                    operator="Equal",
-                    tolerationSeconds=toleration.tolerationSeconds,
-                )
-                for key, value in node_selector.items()
-            ]
+        for t in tolerations:
+            if "control-plane" in t.key:
+                return [
+                    Toleration(
+                        key=key,
+                        value=value,
+                        effect=t.effect,
+                        operator="Equal",
+                        tolerationSeconds=t.tolerationSeconds,
+                    )
+                    for key, value in node_selector.items()
+                ]
         return []
 
 
@@ -160,7 +161,7 @@ class UpdateControllerDeployment(UpdateController):
             log.info(f"Replacing azuredisk default replicas of {obj.spec.replicas} to {replicas}")
             obj.spec.replicas = replicas
 
-        update_toleration(obj, self._adjuster)
+        update_tolerations(obj, self._adjuster)
 
 
 class CreateStorageClass(Addition):
