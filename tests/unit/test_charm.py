@@ -167,6 +167,7 @@ def test_waits_for_config(harness, lk_client, caplog):
 
     assert provider_messages == {
         "Adding provider tolerations from control-plane",
+        "Adding provider topologySpreadConstraints",
         'Applying provider Control Node Selector as gcp.io/my-control-node: ""',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
@@ -184,6 +185,7 @@ def test_waits_for_config(harness, lk_client, caplog):
 
     assert provider_messages == {
         "Adding provider tolerations from control-plane",
+        "Adding provider topologySpreadConstraints",
         'Applying provider Control Node Selector as juju-application: "kubernetes-control-plane"',
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",

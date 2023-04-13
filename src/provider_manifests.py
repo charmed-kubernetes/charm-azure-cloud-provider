@@ -8,7 +8,8 @@ from hashlib import md5
 from typing import Dict, Optional
 
 import humps
-from lightkube.models.core_v1 import Toleration
+from lightkube.models.core_v1 import Toleration, TopologySpreadConstraint
+from lightkube.models.meta_v1 import LabelSelector
 from ops.manifests import ConfigRegistry, ManifestLabel, Manifests, Patch
 
 log = logging.getLogger(__file__)
@@ -164,6 +165,20 @@ class UpdateControllerDeployment(UpdateController):
             log.info(f"Replacing default replicas of {obj.spec.replicas} to {replicas}")
             obj.spec.replicas = replicas
 
+        # to prevent replicas from landing on the same nodes, use topologySpreadConstraints
+        # https://github.com/kubernetes-sigs/cloud-provider-azure/blob/fe6f72141d63a21525b96873f83e7a1c3dbae39e/helm/cloud-provider-azure/templates/cloud-provider-azure.yaml#L170-L177
+        log.info("Adding provider topologySpreadConstraints")
+
+        # workaround for https://github.com/gtsystem/lightkube/issues/44
+        obj.spec.template.spec._lazy_values.pop("topologySpreadConstraints", None)
+        obj.spec.template.spec.topologySpreadConstraints = [
+            TopologySpreadConstraint(
+                maxSkew=1,
+                topologyKey="kubernetes.io/hostname",
+                whenUnsatisfiable="DoNotSchedule",
+                labelSelector=LabelSelector(matchLabels=dict(**obj.spec.selector.matchLabels)),
+            )
+        ]
         self._update_args(obj.spec.template.spec)
 
 

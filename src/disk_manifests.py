@@ -10,7 +10,8 @@ from typing import Dict, List, Optional
 
 import humps
 from lightkube.codecs import AnyResource, from_dict
-from lightkube.models.core_v1 import Toleration
+from lightkube.models.core_v1 import Toleration, TopologySpreadConstraint
+from lightkube.models.meta_v1 import LabelSelector
 from ops.manifests import (
     Addition,
     ConfigRegistry,
@@ -162,6 +163,17 @@ class UpdateControllerDeployment(UpdateController):
             obj.spec.replicas = replicas
 
         update_tolerations(obj, self._adjuster)
+        log.info("Adding azuredisk topologySpreadConstraints")
+
+        obj.spec.template.spec._lazy_values.pop("topologySpreadConstraints", None)
+        obj.spec.template.spec.topologySpreadConstraints = [
+            TopologySpreadConstraint(
+                maxSkew=1,
+                topologyKey="kubernetes.io/hostname",
+                whenUnsatisfiable="DoNotSchedule",
+                labelSelector=LabelSelector(matchLabels=dict(**obj.spec.selector.matchLabels)),
+            )
+        ]
 
 
 class CreateStorageClass(Addition):
