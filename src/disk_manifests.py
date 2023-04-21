@@ -165,7 +165,6 @@ class UpdateControllerDeployment(UpdateController):
         update_tolerations(obj, self._adjuster)
         log.info("Adding azuredisk topologySpreadConstraints")
 
-        obj.spec.template.spec._lazy_values.pop("topologySpreadConstraints", None)
         obj.spec.template.spec.topologySpreadConstraints = [
             TopologySpreadConstraint(
                 maxSkew=1,
