@@ -169,8 +169,6 @@ class UpdateControllerDeployment(UpdateController):
         # https://github.com/kubernetes-sigs/cloud-provider-azure/blob/fe6f72141d63a21525b96873f83e7a1c3dbae39e/helm/cloud-provider-azure/templates/cloud-provider-azure.yaml#L170-L177
         log.info("Adding provider topologySpreadConstraints")
 
-        # workaround for https://github.com/gtsystem/lightkube/issues/44
-        obj.spec.template.spec._lazy_values.pop("topologySpreadConstraints", None)
         obj.spec.template.spec.topologySpreadConstraints = [
             TopologySpreadConstraint(
                 maxSkew=1,
