@@ -17,8 +17,10 @@ from ops.charm import RelationBrokenEvent
 from ops.framework import Object
 from pydantic import BaseModel, Extra, Field, StrictStr, ValidationError
 
+
 class AzureIntegrationData(BaseModel, extra=Extra.allow):
     """Requires side of azure-integration:client relation."""
+
     resource_group_location: StrictStr = Field(alias="resource-group-location")
     vnet_name: StrictStr = Field(alias="vnet-name")
     vnet_resource_group: StrictStr = Field(alias="vnet-resource-group")
