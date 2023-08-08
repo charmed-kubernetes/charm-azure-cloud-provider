@@ -15,21 +15,21 @@ from urllib.request import Request, urlopen
 from backports.cached_property import cached_property
 from ops.charm import RelationBrokenEvent
 from ops.framework import Object
-from pydantic import BaseModel, Extra, Field, StrictStr, ValidationError
+from pydantic import BaseModel, Extra, Field, Json, ValidationError
 
 
 class AzureIntegrationData(BaseModel, extra=Extra.allow):
     """Requires side of azure-integration:client relation."""
 
-    resource_group_location: StrictStr = Field(alias="resource-group-location")
-    vnet_name: StrictStr = Field(alias="vnet-name")
-    vnet_resource_group: StrictStr = Field(alias="vnet-resource-group")
-    subnet_name: StrictStr = Field(alias="subnet-name")
-    security_group_name: StrictStr = Field(alias="security-group-name")
-    security_group_resource_group: StrictStr = Field(alias="security-group-resource-group")
-    aad_client: StrictStr = Field(alias="aad-client")
-    aad_client_secret: StrictStr = Field(alias="aad-client-secret")
-    tenant_id: StrictStr = Field(alias="tenant-id")
+    resource_group_location: Json[str] = Field(alias="resource-group-location")
+    vnet_name: Json[str] = Field(alias="vnet-name")
+    vnet_resource_group: Json[str] = Field(alias="vnet-resource-group")
+    subnet_name: Json[str] = Field(alias="subnet-name")
+    security_group_name: Json[str] = Field(alias="security-group-name")
+    security_group_resource_group: Json[str] = Field(alias="security-group-resource-group")
+    aad_client: Json[str] = Field(alias="aad-client")
+    aad_client_secret: Json[str] = Field(alias="aad-client-secret")
+    tenant_id: Json[str] = Field(alias="tenant-id")
     use_managed_identity: bool = Field(alias="use-managed-identity")
 
 

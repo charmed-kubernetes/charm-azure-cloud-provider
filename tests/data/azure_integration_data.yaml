@@ -1,0 +1,14 @@
+aad-client: '"206e5ba9-5578-4990-a74d-7f4472c675a6"'
+aad-client-secret: '"redacted-secret"'
+completed: '{"573f5cbf-0a25-4e5e-8ec3-5c8f40da3c96": "abc12345"}'
+egress-subnets: 192.168.0.6/32
+ingress-address: 192.168.0.6
+private-address: 192.168.0.6
+resource-group-location: '"centralus"'
+security-group-name: '"juju-internal-nsg"'
+security-group-resource-group: '""'
+subnet-name: '"juju-internal-subnet"'
+tenant-id: '"90d28ac7-f758-43d9-8c2b-b1786631275e"'
+use-managed-identity: "true"
+vnet-name: '"juju-internal-network"'
+vnet-resource-group: '"juju-test-azure-cloud-provider-unv7-b9ff3ba6"'
