@@ -9,6 +9,7 @@ from pathlib import Path
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.interface_kube_control import KubeControlRequirer
+from ops.interface_tls_certificates import CertificatesRequires
 from ops.main import main
 from ops.manifests import Collector, ManifestClientError
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
@@ -17,7 +18,6 @@ from config import CharmConfig
 from disk_manifests import AzureDiskManifests
 from provider_manifests import AzureProviderManifests
 from requires_azure_integration import AzureIntegrationRequires
-from requires_certificates import CertificatesRequires
 
 log = logging.getLogger(__name__)
 

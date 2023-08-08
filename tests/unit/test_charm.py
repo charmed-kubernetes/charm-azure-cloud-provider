@@ -101,6 +101,7 @@ def test_waits_for_certificates(harness):
     rel_cls = type(charm.certificates)
     rel_cls.relation = property(rel_cls.relation.func)
     rel_cls._data = property(rel_cls._data.func)
+    rel_cls._raw_data = property(rel_cls._raw_data.func)
     rel_id = harness.add_relation("certificates", "easyrsa")
     assert isinstance(charm.unit.status, WaitingStatus)
     assert charm.unit.status.message == "Waiting for certificates"
@@ -160,7 +161,7 @@ def test_waits_for_config(harness, lk_client, caplog):
     caplog.clear()
     harness.update_config(
         {
-            "control-node-selector": "gcp.io/my-control-node=",
+            "control-node-selector": "azure.io/my-control-node=",
         }
     )
     provider_messages = {r.message for r in caplog.records if "provider" in r.filename}
@@ -168,8 +169,9 @@ def test_waits_for_config(harness, lk_client, caplog):
     assert provider_messages == {
         "Adding provider tolerations from control-plane",
         "Adding provider topologySpreadConstraints",
-        'Applying provider Control Node Selector as gcp.io/my-control-node: ""',
+        'Applying provider Control Node Selector as azure.io/my-control-node: ""',
         "Replacing default cluster-name to kubernetes-thing",
+        "Replacing default replicas of 1 to 2",
         "Applying provider secret data",
         "Setting wait-routes=false",
     }
@@ -187,6 +189,7 @@ def test_waits_for_config(harness, lk_client, caplog):
         "Adding provider tolerations from control-plane",
         "Adding provider topologySpreadConstraints",
         'Applying provider Control Node Selector as juju-application: "kubernetes-control-plane"',
+        "Replacing default replicas of 1 to 2",
         "Replacing default cluster-name to kubernetes-thing",
         "Applying provider secret data",
         "Setting wait-routes=false",

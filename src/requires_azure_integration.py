@@ -12,10 +12,24 @@ import string
 from typing import Optional
 from urllib.request import Request, urlopen
 
-import jsonschema
 from backports.cached_property import cached_property
 from ops.charm import RelationBrokenEvent
 from ops.framework import Object
+from pydantic import BaseModel, Extra, Field, StrictStr, ValidationError
+
+class AzureIntegrationData(BaseModel, extra=Extra.allow):
+    """Requires side of azure-integration:client relation."""
+    resource_group_location: StrictStr = Field(alias="resource-group-location")
+    vnet_name: StrictStr = Field(alias="vnet-name")
+    vnet_resource_group: StrictStr = Field(alias="vnet-resource-group")
+    subnet_name: StrictStr = Field(alias="subnet-name")
+    security_group_name: StrictStr = Field(alias="security-group-name")
+    security_group_resource_group: StrictStr = Field(alias="security-group-resource-group")
+    aad_client: StrictStr = Field(alias="aad-client")
+    aad_client_secret: StrictStr = Field(alias="aad-client-secret")
+    tenant_id: StrictStr = Field(alias="tenant-id")
+    use_managed_identity: bool = Field(alias="use-managed-identity")
+
 
 log = logging.getLogger(__name__)
 
@@ -27,35 +41,6 @@ READ_BLOCK_SIZE = 2048
 
 class AzureIntegrationRequires(Object):
     """Requires side of azure-integration:client relation."""
-
-    SCHEMA_STR = [
-        "resource-group-location",
-        "vnet-name",
-        "vnet-resource-group",
-        "subnet-name",
-        "security-group-name",
-        "security-group-resource-group",
-        "aad-client",
-        "aad-client-secret",
-        "tenant-id",
-    ]
-    SCHEMA_BOOL = [
-        "use-managed-identity",
-    ]
-    LIMIT = 1
-    SCHEMA = dict(
-        type="object",
-        properties=dict(
-            **{k: dict(type="string") for k in SCHEMA_STR},
-            **{k: dict(type="boolean") for k in SCHEMA_BOOL},
-        ),
-        required=SCHEMA_STR + SCHEMA_BOOL,
-    )
-    IGNORE_FIELDS = {
-        "egress-subnets",
-        "ingress-address",
-        "private-address",
-    }
 
     # https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service
     _metadata_url = "http://169.254.169.254/metadata/instance?api-version=2017-12-01"  # noqa
@@ -82,19 +67,15 @@ class AzureIntegrationRequires(Object):
         return self.model.get_relation(self.endpoint)
 
     @cached_property
-    def _data(self):
-        if not (self.relation and self.relation.units):
-            return {}
-        raw_data = self.relation.data[list(self.relation.units)[0]]
-        data = {}
-        for field, raw_value in raw_data.items():
-            if field in self.IGNORE_FIELDS or not raw_value:
-                continue
-            try:
-                data[field] = json.loads(raw_value)
-            except json.JSONDecodeError as e:
-                log.error(f"Failed to decode relation data in {field}: {e}")
-        return data
+    def _raw_data(self):
+        if self.relation and self.relation.units:
+            return self.relation.data[list(self.relation.units)[0]]
+        return None
+
+    @cached_property
+    def _data(self) -> Optional[AzureIntegrationData]:
+        raw = self._raw_data
+        return AzureIntegrationData(**raw) if raw else None
 
     def evaluate_relation(self, event) -> Optional[str]:
         """Determine if relation is ready."""
@@ -111,16 +92,14 @@ class AzureIntegrationRequires(Object):
     def is_ready(self):
         """Whether the request for this instance has been completed."""
         try:
-            jsonschema.validate(self._data, self.SCHEMA)
-        except jsonschema.ValidationError:
-            log.error(f"{self.endpoint} relation data not yet valid.")
+            self._data
+        except ValidationError as ve:
+            log.error(f"{self.endpoint} relation data not yet valid. ({ve}")
+            return False
+        if self._data is None:
+            log.error(f"{self.endpoint} relation data not yet available.")
             return False
         return True
-
-    def _value(self, key):
-        if not self._data:
-            return None
-        return self._data.get(key)
 
     @cached_property
     def vm_metadata(self):
@@ -131,77 +110,97 @@ class AzureIntegrationRequires(Object):
             return json.loads(metadata)
 
     @property
-    def resource_group_location(self):
+    def resource_group_location(self) -> Optional[str]:
         """The resource-group-location value."""
-        return self._value("resource-group-location")
+        if not self.is_ready:
+            return None
+        return self._data.resource_group_location
 
     @property
-    def vnet_name(self):
+    def vnet_name(self) -> Optional[str]:
         """The vnet-name value."""
-        return self._value("vnet-name")
+        if not self.is_ready:
+            return None
+        return self._data.vnet_name
 
     @property
-    def vnet_resource_group(self):
+    def vnet_resource_group(self) -> Optional[str]:
         """The vnet-resource-group value."""
-        return self._value("vnet-resource-group")
+        if not self.is_ready:
+            return None
+        return self._data.vnet_resource_group
 
     @property
-    def subnet_name(self):
+    def subnet_name(self) -> Optional[str]:
         """The subnet-name value."""
-        return self._value("subnet-name")
+        if not self.is_ready:
+            return None
+        return self._data.subnet_name
 
     @property
-    def security_group_name(self):
+    def security_group_name(self) -> Optional[str]:
         """The security-group-name value."""
-        return self._value("security-group-name")
+        if not self.is_ready:
+            return None
+        return self._data.security_group_name
 
     @property
-    def security_group_resource_group(self):
+    def security_group_resource_group(self) -> Optional[str]:
         """The security-group-resource-group value."""
-        return self._value("security-group-resource-group")
+        if not self.is_ready:
+            return None
+        return self._data.security_group_resource_group
 
     @property
-    def use_managed_identity(self):
+    def use_managed_identity(self) -> Optional[bool]:
         """The use-managed-identity value."""
-        return self._value("use-managed-identity")
+        if not self.is_ready:
+            return None
+        return self._data.use_managed_identity
 
     @property
-    def aad_client(self):
+    def aad_client(self) -> Optional[str]:
         """The aad-client value."""
-        return self._value("aad-client")
+        if not self.is_ready:
+            return None
+        return self._data.aad_client
 
     @property
-    def aad_client_secret(self):
+    def aad_client_secret(self) -> Optional[str]:
         """The aad-client-secret value."""
-        return self._value("aad-client-secret")
+        if not self.is_ready:
+            return None
+        return self._data.aad_client_secret
 
     @property
-    def tenant_id(self):
+    def tenant_id(self) -> Optional[str]:
         """The tenant-id value."""
-        return self._value("tenant-id")
+        if not self.is_ready:
+            return None
+        return self._data.tenant_id
 
     @property
-    def vm_id(self):
+    def vm_id(self) -> str:
         """This unit's instance ID."""
         return self.vm_metadata["compute"]["vmId"]
 
     @property
-    def vm_name(self):
+    def vm_name(self) -> str:
         """This unit's instance name."""
         return self.vm_metadata["compute"]["name"]
 
     @property
-    def vm_location(self):
+    def vm_location(self) -> str:
         """The location (region) the instance is running in."""
         return self.vm_metadata["compute"]["location"]
 
     @property
-    def resource_group(self):
+    def resource_group(self) -> str:
         """The resource group this unit is in."""
         return self.vm_metadata["compute"]["resourceGroupName"]
 
     @property
-    def subscription_id(self):
+    def subscription_id(self) -> str:
         """The ID of the Azure Subscription this unit is in."""
         return self.vm_metadata["compute"]["subscriptionId"]
 
