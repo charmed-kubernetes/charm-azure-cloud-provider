@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ops.charm import CharmBase
 from ops.framework import StoredState
+from ops.interface_azure.requires import AzureIntegrationRequires
 from ops.interface_kube_control import KubeControlRequirer
 from ops.interface_tls_certificates import CertificatesRequires
 from ops.main import main
@@ -17,7 +18,6 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from config import CharmConfig
 from disk_manifests import AzureDiskManifests
 from provider_manifests import AzureProviderManifests
-from requires_azure_integration import AzureIntegrationRequires
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class AzureCloudProviderCharm(CharmBase):
         super().__init__(*args)
 
         # Relation Validator and datastore
-        self.integrator = AzureIntegrationRequires(self)
+        self.integrator = AzureIntegrationRequires(self, "azure-integration")
         self.kube_control = KubeControlRequirer(self)
         self.certificates = CertificatesRequires(self)
         # Config Validator and datastore

@@ -8,7 +8,7 @@ applications:
       cidr: 172.22.0.0/16       # replace 192.168.0.0/16 as it's the default in azure for host networking
   azure-integrator:
     charm: azure-integrator
-    channel: edge
+    channel: stable
     num_units: 1
     trust: true
   azure-cloud-provider:
