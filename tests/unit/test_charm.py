@@ -48,7 +48,7 @@ def integrator():
     with mock.patch("charm.AzureIntegrationRequires") as mocked:
         integrator = mocked.return_value
         integrator.tenant_id = "0000000-0000-0000-0000-000000000000"
-        integrator.aad_client = "0000000-0000-0000-0000-000000000000"
+        integrator.aad_client_id = "0000000-0000-0000-0000-000000000000"
         integrator.aad_client_secret = "0000000-0000-0000-0000-000000000000"
         integrator.subscription_id = "0000000-0000-0000-0000-000000000000"
         integrator.resource_group = "name"
