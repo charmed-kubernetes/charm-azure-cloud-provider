@@ -7,4 +7,4 @@ pydantic==1.*
 ops.manifest>=1.1.0,<2.0.0
 ops.interface-kube-control @ git+https://github.com/charmed-kubernetes/interface-kube-control.git@main#subdirectory=ops
 ops.interface-tls-certificates @ git+https://github.com/charmed-kubernetes/interface-tls-certificates.git@main#subdirectory=ops
-ops.interface-azure @ git+https://github.com/charmed-kubernetes/interface-azure-integration.git@KU-438/azure-ops-integration#subdirectory=ops
+ops.interface-azure @ git+https://github.com/charmed-kubernetes/interface-azure-integration.git@main#subdirectory=ops
