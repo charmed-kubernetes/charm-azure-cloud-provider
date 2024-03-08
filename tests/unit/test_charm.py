@@ -11,6 +11,7 @@ import ops.testing
 import pytest
 import yaml
 from lightkube import ApiError
+from lightkube.core.internal_resources import apiextensions
 from ops.manifests import ManifestClientError
 from ops.model import BlockedStatus, MaintenanceStatus, WaitingStatus
 
@@ -47,7 +48,7 @@ def integrator():
     with mock.patch("charm.AzureIntegrationRequires") as mocked:
         integrator = mocked.return_value
         integrator.tenant_id = "0000000-0000-0000-0000-000000000000"
-        integrator.aad_client = "0000000-0000-0000-0000-000000000000"
+        integrator.aad_client_id = "0000000-0000-0000-0000-000000000000"
         integrator.aad_client_secret = "0000000-0000-0000-0000-000000000000"
         integrator.subscription_id = "0000000-0000-0000-0000-000000000000"
         integrator.resource_group = "name"
@@ -87,7 +88,7 @@ def test_waits_for_integrator(harness):
     harness.begin_with_initial_hooks()
     charm = harness.charm
     assert isinstance(charm.unit.status, BlockedStatus)
-    assert charm.unit.status.message == "Missing required azure-integration relation"
+    assert charm.unit.status.message == "Missing required azure-integration"
 
 
 @pytest.mark.usefixtures("integrator")
@@ -217,6 +218,9 @@ def mock_get_response(lk_client, api_error_klass):
 @pytest.fixture()
 def mock_list_response(lk_client, mock_get_response):
     def client_list_response(obj_type, *, namespace=None, labels=None):
+        if obj_type == apiextensions.CustomResourceDefinition:
+            return []
+
         try:
             return [
                 mock_get_response(obj_type, name="MockThing", namespace=namespace, labels=labels)
@@ -234,47 +238,27 @@ def test_action_list_resources(harness, caplog):
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
     event.params = {}
-    harness.charm._list_resources(event)
-    (results,), _ = event.set_results.call_args
-    correct, extra, missing = (
-        results.get(f"cloud-provider-azure-{_}") for _ in ["correct", "extra", "missing"]
-    )
-    assert correct and len(correct.splitlines()) == 3
-    assert missing and len(missing.splitlines()) == 8
-    assert extra and len(extra.splitlines()) == 2
+    with mock.patch.object(harness.charm.collector, "list_resources") as mock_list:
+        harness.charm._list_resources(event)
+    mock_list.assert_called_with(event, "", "")
 
 
-@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
-@pytest.mark.usefixtures("mock_list_response")
 def test_action_list_resources_filtered(harness, caplog):
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
     event.params = {"resources": "Secret Banana", "controller": "cloud-provider-azure"}
-    harness.charm._list_resources(event)
-    (results,), _ = event.set_results.call_args
-    correct, extra, missing = (
-        results.get(f"cloud-provider-azure-{_}") for _ in ["correct", "extra", "missing"]
-    )
-    assert missing is None
-    assert correct and len(correct.splitlines()) == 1
-    assert extra and len(extra.splitlines()) == 1
+    with mock.patch.object(harness.charm.collector, "list_resources") as mock_list:
+        harness.charm._list_resources(event)
+    mock_list.assert_called_with(event, "cloud-provider-azure", "Secret Banana")
 
 
-@pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
-@pytest.mark.usefixtures("mock_list_response")
-def test_action_scrub_resources(harness, lk_client, mock_get_response, caplog):
-    class Secret:
-        pass
-
+def test_action_scrub_resources(harness):
     harness.begin_with_initial_hooks()
     event = mock.MagicMock()
     event.params = {"resources": "Secret", "controller": "cloud-provider-azure"}
-    with mock.patch.object(lk_client, "delete") as mock_delete:
+    with mock.patch.object(harness.charm.collector, "scrub_resources") as mock_scrub:
         harness.charm._scrub_resources(event)
-    expected = mock_get_response(Secret, "MockThing", namespace="kube-system")
-    mock_delete.assert_called_with(
-        type(expected), expected.metadata.name, namespace=expected.metadata.namespace
-    )
+    mock_scrub.assert_called_with(event, "cloud-provider-azure", "Secret")
 
 
 @pytest.mark.usefixtures("integrator", "certificates", "kube_control", "control_plane")
@@ -301,9 +285,12 @@ def test_action_sync_resources(harness, lk_client, mock_get_response, caplog):
     ) and kwargs == {"force": True}, "Failed to create secret"
 
 
-def test_install_or_upgrade_apierror(harness, lk_client: mock.MagicMock):
-    harness.begin_with_initial_hooks()
-    with mock.patch.object(lk_client, "apply", side_effect=ManifestClientError("foo")):
+@pytest.mark.usefixtures("integrator")
+def test_install_or_upgrade_apierror(harness):
+    with mock.patch(
+        "ops.manifests.Manifests.apply_manifests", side_effect=ManifestClientError("foo")
+    ):
+        harness.begin_with_initial_hooks()
         charm = harness.charm
         charm.stored.config_hash = "mock_hash"
         mock_event = mock.MagicMock()
@@ -312,9 +299,12 @@ def test_install_or_upgrade_apierror(harness, lk_client: mock.MagicMock):
         assert isinstance(charm.unit.status, WaitingStatus)
 
 
-def test_cleanup_apierror(harness, lk_client: mock.MagicMock):
-    harness.begin_with_initial_hooks()
-    with mock.patch.object(lk_client, "delete", side_effect=ManifestClientError("foo")):
+@pytest.mark.usefixtures("integrator")
+def test_cleanup_apierror(harness):
+    with mock.patch(
+        "ops.manifests.Manifests.delete_manifests", side_effect=ManifestClientError("foo")
+    ):
+        harness.begin_with_initial_hooks()
         charm = harness.charm
         charm.stored.config_hash = "mock_hash"
         mock_event = mock.MagicMock()
@@ -333,6 +323,7 @@ def test_cleanup_apierror(harness, lk_client: mock.MagicMock):
         )
     ],
 )
+@pytest.mark.usefixtures("integrator")
 def test_sync_resources_message(harness, lk_client: mock.MagicMock, side_effect, message):
     with mock.patch.object(lk_client, "list", side_effect=side_effect):
         with mock.patch.object(lk_client, "apply", side_effect=side_effect):

@@ -12,6 +12,7 @@ import humps
 from lightkube.codecs import AnyResource, from_dict
 from lightkube.models.core_v1 import Toleration, TopologySpreadConstraint
 from lightkube.models.meta_v1 import LabelSelector
+from ops.interface_azure.requires import AzureIntegrationRequires
 from ops.manifests import (
     Addition,
     ConfigRegistry,
@@ -221,7 +222,7 @@ class AzureDiskManifests(Manifests):
         ]
         super().__init__("disk-driver-azure", charm.model, "upstream/azure_disk", manipulations)
         self.charm_config = charm_config
-        self.integrator = integrator
+        self.integrator: AzureIntegrationRequires = integrator
         self.kube_control = kube_control
 
     @property
@@ -233,7 +234,7 @@ class AzureDiskManifests(Manifests):
                 {
                     "tenant-id": self.integrator.tenant_id,
                     "subscription-id": self.integrator.subscription_id,
-                    "aad-client-id": self.integrator.aad_client,
+                    "aad-client-id": self.integrator.aad_client_id,
                     "aad-client-secret": self.integrator.aad_client_secret,
                     "resource-group": self.integrator.resource_group,
                     "location": self.integrator.resource_group_location,
