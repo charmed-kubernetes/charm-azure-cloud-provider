@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Read charmcraft version file
         id: charmcraft
         run: echo "channel=$(cat .charmcraft-channel)" >> $GITHUB_OUTPUT        
@@ -54,13 +54,13 @@ jobs:
         run: |
           sg lxd -c 'charmcraft pack -v'
       - name: Upload charm artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: azure-cloud-provider.charm
           path: ./azure-cloud-provider*.charm
       - name: Upload debug artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: charmcraft-logs
           path: /home/runner/snap/charmcraft/common/cache/charmcraft/log/charmcraft-*.log

@@ -32,9 +32,12 @@ spec:
         - key: "node-role.kubernetes.io/control-plane"
           operator: "Exists"
           effect: "NoSchedule"
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v5.0.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-provisioner:v5.1.0
           args:
             - "--feature-gates=Topology=true,HonorPVReclaimPolicy=true"
             - "--csi-address=$(ADDRESS)"
@@ -47,6 +50,7 @@ spec:
             - "--strict-topology=true"
             - "--kube-api-qps=50"
             - "--kube-api-burst=100"
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -64,7 +68,7 @@ spec:
               drop:
                 - ALL
         - name: csi-attacher
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v4.6.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-attacher:v4.7.0
           args:
             - "-v=2"
             - "-csi-address=$(ADDRESS)"
@@ -91,13 +95,15 @@ spec:
               drop:
                 - ALL
         - name: csi-snapshotter
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v8.0.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-snapshotter:v8.2.0
           args:
             - "-csi-address=$(ADDRESS)"
             - "-leader-election"
             - "--leader-election-namespace=kube-system"
             - "--v=2"
             - "--timeout=1200s"
+            - "--extra-create-metadata=true"
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -106,7 +112,7 @@ spec:
               mountPath: /csi
           resources:
             limits:
-              memory: 200Mi
+              memory: 400Mi
             requests:
               cpu: 10m
               memory: 20Mi
@@ -115,7 +121,7 @@ spec:
               drop:
                 - ALL
         - name: csi-resizer
-          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.11.1
+          image: mcr.microsoft.com/oss/kubernetes-csi/csi-resizer:v1.12.0
           args:
             - "-csi-address=$(ADDRESS)"
             - "-v=2"
@@ -124,6 +130,7 @@ spec:
             - '-handle-volume-inuse-error=false'
             - '-feature-gates=RecoverVolumeExpansionFailure=true'
             - "-timeout=240s"
+            - "--retry-interval-max=30m"
           env:
             - name: ADDRESS
               value: /csi/csi.sock
@@ -141,7 +148,7 @@ spec:
               drop:
                 - ALL
         - name: liveness-probe
-          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.13.0
+          image: mcr.microsoft.com/oss/kubernetes-csi/livenessprobe:v2.14.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -161,7 +168,7 @@ spec:
               drop:
                 - ALL
         - name: azuredisk
-          image: mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.29.7
+          image: mcr.microsoft.com/oss/kubernetes-csi/azuredisk-csi:v1.31.2
           imagePullPolicy: IfNotPresent
           args:
             - "--v=5"
