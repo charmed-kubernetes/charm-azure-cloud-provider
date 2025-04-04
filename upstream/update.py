@@ -2,6 +2,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 """Update to a new upstream release."""
+
 import argparse
 import json
 import logging
@@ -172,7 +173,10 @@ def gather_releases(source: str) -> Set[Release]:
                         item["name"],
                         [
                             GH_RAW.format(
-                                branch=item["name"], rel="", manifest=manifest, **context
+                                branch=item["name"],
+                                rel="",
+                                manifest=manifest,
+                                **context,
                             )
                             for manifest in context["manifests"]
                         ],
@@ -228,7 +232,10 @@ def dedupe(this: Release, next: Release) -> Release:
     for file_next in next.paths:
         for file_this in this.paths:
             if all(
-                (file_this.name == file_next.name, file_this.read_text() != file_next.read_text())
+                (
+                    file_this.name == file_next.name,
+                    file_this.read_text() != file_next.read_text(),
+                )
             ):
                 # Found different in at least one file
                 return next
@@ -297,10 +304,7 @@ def get_argparser():
         default=list(SOURCES.keys()),
         choices=SOURCES.keys(),
         type=str,
-        help="Which manifest sources to be updated.\n\n"
-        "example\n"
-        "  --source cloud_provider\n"
-        "\n",
+        help="Which manifest sources to be updated.\n\nexample\n  --source cloud_provider\n\n",
     )
     return parser
 

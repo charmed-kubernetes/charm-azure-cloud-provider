@@ -6,5 +6,5 @@ pyyaml
 pydantic==1.*
 ops.manifest>=1.1.0,<2.0.0
 ops.interface-kube-control==0.2.0
-ops.interface-tls-certificates @ git+https://github.com/charmed-kubernetes/interface-tls-certificates.git@4a1081da098154b96337a09c8e9c40acff2d330e#subdirectory=ops
+ops.interface-tls-certificates @ git+https://github.com/charmed-kubernetes/interface-tls-certificates.git@236e089493c96feac5ea1a8617b1059a4477a04e#subdirectory=ops
 ops.interface-azure @ git+https://github.com/charmed-kubernetes/interface-azure-integration.git@main#subdirectory=ops

@@ -1,6 +1,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 """Implementation of AzureDisk specific details of the kubernetes manifests."""
+
 import base64
 import json
 import logging
@@ -211,7 +212,7 @@ class CreateStorageClass(Addition):
 class AzureDiskManifests(Manifests):
     """Deployment Specific details for the cs-azuredisk-driver."""
 
-    def __init__(self, charm, charm_config, integrator, kube_control):
+    def __init__(self, charm, charm_config, integrator, kube_control) -> None:
         manipulations = [
             ManifestLabel(self),
             ConfigRegistry(self),
