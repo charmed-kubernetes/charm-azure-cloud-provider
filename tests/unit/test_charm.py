@@ -147,7 +147,12 @@ def test_waits_for_kube_control(mock_create_kubeconfig, harness):
     mock_create_kubeconfig.assert_has_calls(
         [
             mock.call(charm.CA_CERT_PATH, "/root/.kube/config", "root", charm.unit.name),
-            mock.call(charm.CA_CERT_PATH, "/home/ubuntu/.kube/config", "ubuntu", charm.unit.name),
+            mock.call(
+                charm.CA_CERT_PATH,
+                "/home/ubuntu/.kube/config",
+                "ubuntu",
+                charm.unit.name,
+            ),
         ]
     )
     assert isinstance(charm.unit.status, MaintenanceStatus)
@@ -288,7 +293,8 @@ def test_action_sync_resources(harness, lk_client, mock_get_response, caplog):
 @pytest.mark.usefixtures("integrator")
 def test_install_or_upgrade_apierror(harness):
     with mock.patch(
-        "ops.manifests.Manifests.apply_manifests", side_effect=ManifestClientError("foo")
+        "ops.manifests.Manifests.apply_manifests",
+        side_effect=ManifestClientError("foo"),
     ):
         harness.begin_with_initial_hooks()
         charm = harness.charm
@@ -302,7 +308,8 @@ def test_install_or_upgrade_apierror(harness):
 @pytest.mark.usefixtures("integrator")
 def test_cleanup_apierror(harness):
     with mock.patch(
-        "ops.manifests.Manifests.delete_manifests", side_effect=ManifestClientError("foo")
+        "ops.manifests.Manifests.delete_manifests",
+        side_effect=ManifestClientError("foo"),
     ):
         harness.begin_with_initial_hooks()
         charm = harness.charm

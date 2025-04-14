@@ -1,31 +1,285 @@
 # Learn more about charmcraft.yaml configuration at:
 # https://juju.is/docs/sdk/charmcraft-config
 
+type: "charm"
+
+name: azure-cloud-provider
+title: Azure Cloud Provider
+summary: Runs the Azure Cloud Provider in the cluster.
+description: >-
+  The Azure cloud provider provides the Kubernetes cluster access to
+  native resources from Azure, such as storage and load balancers.
+links:
+  contact: https://launchpad.net/~containers
+  source:
+  - https://github.com/charmed-kubernetes/charm-azure-cloud-provider
+  issues:
+  - https://bugs.launchpad.net/charm-azure-cloud-provider
+  documentation: https://discourse.charmhub.io/t/azure-cloud-provider-docs-index/6879
+
+subordinate: true
+
+config:
+  options:
+    # Global options
+    aad-client-id:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The ClientID for an AAD application with RBAC access to talk to Azure RM APIs
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    aad-client-secret:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The ClientSecret for an AAD application with RBAC access to talk to Azure RM APIs.
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    location:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The location of the resource group that the cluster is deployed in.
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    resource-group:
+      description: >-
+        Required if not related to the Azure Integrator. 
+
+        The name of the resource group that the cluster is deployed in.
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    security-group-name:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The name of the security group attached to the cluster’s subnet	
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    subnet-name:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The name of the subnet that the cluster is deployed in.
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    subscription-id:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The ID of the Azure Subscription that the cluster is deployed in	
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    tenant-id:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The AAD Tenant ID for the Subscription that the cluster is deployed in	
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    vnet-name:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The name of the VNet that the cluster is deployed in.
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    vnet-resource-group:
+      description: >-
+        Required if not related to the Azure Integrator.
+
+        The name of the resource group that the Vnet is deployed in	 
+        https://kubernetes-sigs.github.io/cloud-provider-azure/install/configs/
+      type: string
+
+    vm-type:
+      description: >-
+        The type of azure nodes. Candidate values are: vmss and standard.
+      type: string
+      default: "standard"
+
+    load-balancer-sku:
+      description: >-
+        Sku of Load Balancer and Public IP. Candidate values are: basic and standard.
+
+        See an analysis of the different skus:
+        https://docs.microsoft.com/en-us/azure/load-balancer/skus
+      type: string
+      default: "standard"
+
+    control-node-selector:
+      description: |
+        Specifies to which nodes this charm adds the azure deployments
+        Declare node labels in key=value format, separated by spaces.
+        It's also valid to not have a value, this is interpretted as an empty string.
+
+        Required if not related to kubernetes-control-plane:kube-control
+
+        e.g. 
+          node-role.kubernetes.io/control-plane=custom-value
+          node-role.kubernetes.io/control-plane=
+      type: string
+
+    image-registry:
+      type: string
+      default: "mcr.microsoft.com"
+      description: |
+        Source registry of microsoft provider images.
+
+        By setting to a value, each image listed in the releases manifest
+        has its image-registry replaced.
+
+        If unset, the manifests will use the image registry from the kube-control relation
+
+        example)
+          juju config azure-cloud-provider image-registry=''
+
+          juju config azure-cloud-provider --reset image-registry
+
+    provider-release:
+      type: string
+      description: |
+        Specify the version of cloud-provider as defined by the `releases`
+        directory of https://github.com/kubernetes-sigs/cloud-provider-azure/
+
+        example)
+          juju config azure-cloud-provider provider-release='v1.24.0'
+        
+        A list of supported versions is available through the action:
+          juju run-action azure-cloud-provider/0 list-releases --wait
+        
+        To reset by to the latest supported by the charm use:
+          juju config azure-cloud-provider --reset provider-release
+        
+        The current release deployed is available by viewing
+          juju status azure-cloud-provider
+
+    azuredisk-release:
+      type: string
+      description: |
+        Specify the version of csi-azuredisk as defined by the `releases`
+        directory of https://github.com/kubernetes-sigs/azuredisk-csi-driver/
+
+        example)
+          juju config azure-cloud-provider azuredisk-release='v1.21.0'
+        
+        A list of supported versions is available through the action:
+          juju run-action azure-cloud-provider/0 list-releases --wait
+        
+        Reset to the default release supported by the charm with:
+          juju config azure-cloud-provider --reset azuredisk-release
+        
+        The current release deployed is available by viewing
+          juju status azure-cloud-provider
+
+actions:
+  list-versions:
+    description: List Cloud Provider and Storage Versions supported by this charm
+  list-resources:
+    description: List Cloud Provider and Storage Resources of configured version
+    params:
+      controller:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "provider" or "storage" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types to filter list result
+  scrub-resources:
+    description: |
+      Remove kubernetes resources created by this charm which should no
+      longer be in the cluster.
+    params:
+      controller:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "provider" or "storage" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types to filter scrubbing   
+  sync-resources:
+    description: |
+      Add kubernetes resources which should be created by this charm which aren't
+      present within the cluster.
+    params:
+      controller:
+        type: string
+        default: ""
+        description: |
+          Filter list based on "provider" or "storage" manifests.
+      resources:
+        type: string
+        default: ""
+        description: |
+          Space separated list of kubernetes resource types
+          to use a filter during the sync. This helps limit
+          which missing resources are applied.
+
+
+provides:
+  external-cloud-provider:
+    interface: external_cloud_provider
+    limit: 1
+
+requires:
+  azure-integration:
+    interface: azure-integration
+    scope: container
+    limit: 1
+  kube-control:
+    interface: kube-control
+    limit: 1
+  certificates:
+    interface: tls-certificates
+
 # Architectures based on supported arch's in upstream
 # https://github.com/kubernetes-sigs/cloud-provider-azure/blob/ca18c75a5ec618fa71357d8c6d565ca8acb3d60d/Makefile#L36
-type: "charm"
 bases:
   - build-on:
     - name: "ubuntu"
-      channel: "20.04"
+      channel: "22.04"
       architectures:
         - amd64
     run-on:
-    - name: "ubuntu"
-      channel: "20.04"
-      architectures:
-        - amd64
-        - armhf
-        - arm64
     - name: "ubuntu"
       channel: "22.04"
       architectures:
         - amd64
         - armhf
         - arm64
+    - name: "ubuntu"
+      channel: "24.04"
+      architectures:
+        - amd64
+        - armhf
+        - arm64
 parts:
   charm:
-    build-packages: [git]
-    charm-python-packages: [setuptools, pip]
+    source: .
+    plugin: charm
+    override-build: |
+      craftctl default
+      git -C $CRAFT_PROJECT_DIR rev-parse --short HEAD > version
+    build-packages:
+    - git
+    charm-python-packages:
+    - setuptools
+    - pip
     prime:
-      - upstream/**
+    - upstream/**

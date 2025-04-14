@@ -1,6 +1,7 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 """Implementation of azure cloud provider specific details of the kubernetes manifests."""
+
 import json
 import logging
 import pickle
@@ -85,7 +86,8 @@ class UpdateNode(Patch):
         log.info("Adding provider tolerations from control-plane")
 
         container = next(
-            filter(lambda c: c.name == self.NAME, obj.spec.template.spec.containers), None
+            filter(lambda c: c.name == self.NAME, obj.spec.template.spec.containers),
+            None,
         )
         if container:
             assert "--wait-routes" in container.command[-1]
@@ -184,7 +186,7 @@ class UpdateControllerDeployment(UpdateController):
 class AzureProviderManifests(Manifests):
     """Deployment Specific details for the azure-cloud-provider."""
 
-    def __init__(self, charm, charm_config, integrator, kube_control):
+    def __init__(self, charm, charm_config, integrator, kube_control) -> None:
         manipulations = [
             ManifestLabel(self),
             ConfigRegistry(self),
@@ -194,7 +196,10 @@ class AzureProviderManifests(Manifests):
             UpdateNode(self),
         ]
         super().__init__(
-            "cloud-provider-azure", charm.model, "upstream/cloud_provider", manipulations
+            "cloud-provider-azure",
+            charm.model,
+            "upstream/cloud_provider",
+            manipulations,
         )
         self.charm_config = charm_config
         self.integrator: AzureIntegrationRequires = integrator
