@@ -5,13 +5,13 @@ on:
 jobs:
   call-inclusive-naming-check:
     name: Inclusive Naming
-    uses: canonical/inclusive-naming/.github/workflows/woke.yaml@main
+    uses: canonical/inclusive-naming/.github/workflows/woke.yaml@7aa0f7a606f182bd03a7adb28e0d710216101ca5 # main
     with:
       fail-on-error: "true"
 
   lint-unit:
     name: Lint Unit
-    uses: charmed-kubernetes/workflows/.github/workflows/lint-unit.yaml@main
+    uses: charmed-kubernetes/workflows/.github/workflows/lint-unit.yaml@6ee58c37d404effad4598ce7b523dbaf0cb99285 # main
     with:
       with-uv: true
       python: "['3.10', '3.12']"
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Read charmcraft version file
         id: charmcraft
         run: echo "channel=$(cat .charmcraft-channel)" >> $GITHUB_OUTPUT        
@@ -52,13 +52,13 @@ jobs:
         run: |
           sg lxd -c 'charmcraft pack -v'
       - name: Upload charm artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: azure-cloud-provider.charm
           path: ./azure-cloud-provider*.charm
       - name: Upload debug artifacts
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: charmcraft-logs
           path: /home/runner/snap/charmcraft/common/cache/charmcraft/log/charmcraft-*.log
